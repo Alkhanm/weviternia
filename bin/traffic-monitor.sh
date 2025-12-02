@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# BASE_DIR = /opt/traffic-monitor (bin está dentro dele)
+# BASE_DIR = /opt/traffic-monitor (quando instalado)
+# Calcula baseado na localização deste script
 BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 ANALYZER="$BASE_DIR/bin/traffic-analyzer.sh"
@@ -20,6 +21,11 @@ stop_children() {
 }
 
 trap 'log "Sinal recebido, encerrando..."; stop_children; wait || true; exit 0' TERM INT
+
+log "BASE_DIR = $BASE_DIR"
+log "ANALYZER = $ANALYZER"
+log "BYTES    = $BYTES"
+log "DASHBOARD= $DASHBOARD"
 
 log "Iniciando traffic-analyzer..."
 "$ANALYZER" &
@@ -42,4 +48,3 @@ log "Um dos processos encerrou. Encerrando os demais..."
 stop_children
 wait || true
 log "traffic-monitor finalizado."
-

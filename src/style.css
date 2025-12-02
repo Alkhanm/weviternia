@@ -90,6 +90,11 @@ main {
   background: #111827;
 }
 
+.chip-toggle-btn {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .toggle-group {
   display: flex;
   align-items: center;
@@ -258,6 +263,7 @@ table.log-table {
 td.text {
   white-space: normal;
   word-break: break-word;
+  max-width: 480px;
 }
 
 .ignore-btn {
@@ -292,6 +298,8 @@ td.text {
   background: #111827;
   color: #e5e7eb;
 }
+
+/* ---------- MOBILE ---------- */
 
 @media (max-width: 768px) {
   body {
@@ -332,6 +340,11 @@ td.text {
     width: 100%;
   }
 
+  .chip-toggle-btn {
+    align-self: stretch;
+    text-align: center;
+  }
+
   .summary-table th,
   .summary-table td {
     padding: 4px 6px;
@@ -354,12 +367,18 @@ td.text {
     text-overflow: ellipsis;
   }
 
-  .ignore-btn {
-    display: inline-block;
+  /* Em mobile a data some, mostrando só a hora */
+  .ts-date {
+    display: none;
   }
 
-  .ts-date {
-    display: none; /* em mobile mostra só a hora */
+  /* Menos poluição visual: esconde a coluna Fonte em telas menores */
+  .source-col {
+    display: none;
+  }
+
+  td.text {
+    max-width: 320px;
   }
 }
 
@@ -371,5 +390,18 @@ td.text {
   .ipinfo-btn {
     display: none;
   }
-}
 
+  td.text {
+    max-width: 260px;
+  }
+
+ .log-table thead th:nth-child(5),
+ .log-table tbody td:nth-child(5),
+ .log-table thead th:nth-child(6),
+  .log-table tbody td:nth-child(6),
+  .log-table thead th:nth-child(7),
+  .log-table tbody td:nth-child(7) {
+    display: none;
+  }
+
+}

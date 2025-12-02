@@ -1,30 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Garante que está rodando em bash (e não /bin/sh)
+if [[ -z "${BASH_VERSION:-}" ]]; then
+  echo "Use bash para rodar este instalador, por exemplo:" >&2
+  echo "  bash install-traffic-monitor.sh" >&2
+  exit 1
+fi
+
 # Diretório onde está este script (origem do projeto)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Caminhos alvo (novo layout)
-BASE_DIR="/opt/traffic-monitor"
-BIN_DIR="$BASE_DIR/bin"
-LOG_DIR="$BASE_DIR/logs"
-CONFIG_DIR="$BASE_DIR/config"
-SRC_DIR="$BASE_DIR/src"
-
-# Caminhos "padrão" externos
-OLD_CONFIG_DIR="/etc/traffic-monitor"
-OLD_LOG_DIR="/var/log/traffic-domains"
-OLD_BIN_DIR="/usr/local/bin"
+# Caminhos de destino no sistema
+BIN_DIR="/usr/local/bin"
+DASHBOARD_DIR="/opt/traffic-dashboard"
+CONFIG_DIR="/etc/traffic-monitor"
+LOG_DIR="/var/log/traffic-domains"
 SERVICE_FILE="/etc/systemd/system/traffic-monitor.service"
 
-# Nome dos scripts
-SCRIPTS=(
-  "traffic-analyzer.sh"
-  "traffic-bytes.sh"
-  "traffic-monitor.sh"
-)
-
-# Usuário dono do projeto (quem chamou o sudo)
+# Usuário dono lógico do projeto (quem chamou o sudo)
 TARGET_USER="${SUDO_USER:-$USER}"
 
 require_root() {
@@ -42,92 +36,126 @@ log() {
   echo "[install] $*"
 }
 
-clean_target_layout() {
-  log "Removendo layout anterior (se existir) em $BASE_DIR"
-  rm -rf "$BASE_DIR"
-}
+create_dirs() {
+  log "Criando diretórios de destino, se necessário"
 
-create_layout() {
-  log "Criando estrutura em $BASE_DIR"
-  mkdir -p "$BIN_DIR" "$LOG_DIR" "$CONFIG_DIR" "$SRC_DIR"
-}
-
-copy_project_files() {
-  log "Copiando arquivos do projeto de $SCRIPT_DIR para $BASE_DIR"
-
-  # bin
-  if [[ -d "$SCRIPT_DIR/bin" ]]; then
-    log "  - Copiando bin/"
-    cp -a "$SCRIPT_DIR/bin/." "$BIN_DIR/"
-  else
-    log "  - Aviso: não há diretório bin/ em $SCRIPT_DIR"
+  # Config: se for symlink antigo, remove e cria diretório real
+  if [[ -L "$CONFIG_DIR" ]]; then
+    rm -f "$CONFIG_DIR"
   fi
+  mkdir -p "$CONFIG_DIR"
 
-  # config
-  if [[ -d "$SCRIPT_DIR/config" ]]; then
-    log "  - Copiando config/"
-    cp -a "$SCRIPT_DIR/config/." "$CONFIG_DIR/"
-  else
-    log "  - Aviso: não há diretório config/ em $SCRIPT_DIR (criado vazio)"
+  # Logs: se for symlink antigo, remove e cria diretório real
+  if [[ -L "$LOG_DIR" ]]; then
+    rm -f "$LOG_DIR"
   fi
-
-  # src (painel web)
-  if [[ -d "$SCRIPT_DIR/src" ]]; then
-    log "  - Copiando src/"
-    cp -a "$SCRIPT_DIR/src/." "$SRC_DIR/"
-  else
-    log "  - Aviso: não há diretório src/ em $SCRIPT_DIR"
-  fi
-
-  # logs: em instalação limpa, apenas garante diretório
-  log "  - Garantindo diretório de logs em $LOG_DIR"
   mkdir -p "$LOG_DIR"
+
+  # Painel web
+  mkdir -p "$DASHBOARD_DIR"
 }
 
-create_symlinks() {
-  log "Criando symlinks padrão (sobrescrevendo se existirem)"
+copy_scripts() {
+  log "Copiando scripts para $BIN_DIR"
 
-  # /etc/traffic-monitor -> /opt/traffic-monitor/config
-  rm -rf "$OLD_CONFIG_DIR"
-  ln -s "$CONFIG_DIR" "$OLD_CONFIG_DIR"
-  log "  - $OLD_CONFIG_DIR -> $CONFIG_DIR"
-
-  # /var/log/traffic-domains -> /opt/traffic-monitor/logs
-  rm -rf "$OLD_LOG_DIR"
-  ln -s "$LOG_DIR" "$OLD_LOG_DIR"
-  log "  - $OLD_LOG_DIR -> $LOG_DIR"
-
-  # /usr/local/bin/traffic-*.sh -> /opt/traffic-monitor/bin/traffic-*.sh
-  for s in "${SCRIPTS[@]}"; do
-    local target="$BIN_DIR/$s"
-    local link="$OLD_BIN_DIR/$s"
-
-    if [[ ! -f "$target" ]]; then
-      log "  - Aviso: $target não existe, não cria symlink $link"
-      continue
+  if [[ -d "$SCRIPT_DIR/bin" ]]; then
+    # Atualiza/instala os scripts principais
+    if [[ -f "$SCRIPT_DIR/bin/traffic-analyzer.sh" ]]; then
+      install -m 0755 "$SCRIPT_DIR/bin/traffic-analyzer.sh" "$BIN_DIR/traffic-analyzer.sh"
+      chown "$TARGET_USER":"$TARGET_USER" "$BIN_DIR/traffic-analyzer.sh"
+      log "  - traffic-analyzer.sh -> $BIN_DIR/traffic-analyzer.sh"
     fi
 
-    rm -f "$link"
-    ln -s "$target" "$link"
-    log "  - $link -> $target"
-  done
+    if [[ -f "$SCRIPT_DIR/bin/traffic-bytes.sh" ]]; then
+      install -m 0755 "$SCRIPT_DIR/bin/traffic-bytes.sh" "$BIN_DIR/traffic-bytes.sh"
+      chown "$TARGET_USER":"$TARGET_USER" "$BIN_DIR/traffic-bytes.sh"
+      log "  - traffic-bytes.sh    -> $BIN_DIR/traffic-bytes.sh"
+    fi
+  else
+    log "  - Aviso: não há diretório bin/ na pasta do projeto"
+  fi
 }
 
-fix_permissions() {
-  log "Ajustando permissões em $BASE_DIR para o usuário $TARGET_USER"
+copy_dashboard() {
+  log "Copiando painel web para $DASHBOARD_DIR"
 
-  # Dono do projeto é o usuário "normal"
-  chown -R "$TARGET_USER":"$TARGET_USER" "$BASE_DIR"
-
-  # Scripts executáveis pro dono
-  if compgen -G "$BIN_DIR/traffic-*.sh" > /dev/null; then
-    chmod u+x "$BIN_DIR"/traffic-*.sh
+  if [[ -d "$SCRIPT_DIR/src" ]]; then
+    # Copia tudo de src/ para /opt/traffic-dashboard
+    cp -a "$SCRIPT_DIR/src/." "$DASHBOARD_DIR/"
+    chown -R "$TARGET_USER":"$TARGET_USER" "$DASHBOARD_DIR"
+    log "  - Arquivos HTML/CSS/JS atualizados em $DASHBOARD_DIR"
+  else
+    log "  - Aviso: não há diretório src/ na pasta do projeto"
   fi
+}
 
-  # Opcional: deixar o servidor Node executável
-  if [[ -f "$SRC_DIR/traffic-dashboard.js" ]]; then
-    chmod u+x "$SRC_DIR/traffic-dashboard.js"
+copy_config() {
+  log "Configurando /etc/traffic-monitor"
+
+  if [[ -d "$SCRIPT_DIR/config" ]]; then
+    # Só cria ignore-domains.txt se ainda não existir
+    if [[ -f "$SCRIPT_DIR/config/ignore-domains.txt" && ! -f "$CONFIG_DIR/ignore-domains.txt" ]]; then
+      cp "$SCRIPT_DIR/config/ignore-domains.txt" "$CONFIG_DIR/ignore-domains.txt"
+      chown "$TARGET_USER":"$TARGET_USER" "$CONFIG_DIR/ignore-domains.txt"
+      log "  - ignore-domains.txt criado em $CONFIG_DIR"
+    else
+      log "  - Mantendo ignore-domains.txt existente (se houver)"
+    fi
+  else
+    log "  - Aviso: não há diretório config/ na pasta do projeto"
   fi
+}
+
+generate_wrapper() {
+  log "Gerando / atualizando wrapper /usr/local/bin/traffic-monitor.sh"
+
+  cat > "$BIN_DIR/traffic-monitor.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+ANALYZER="/usr/local/bin/traffic-analyzer.sh"
+BYTES="/usr/local/bin/traffic-bytes.sh"
+DASHBOARD_JS="/opt/traffic-dashboard/traffic-dashboard.js"
+
+log() {
+  echo "[traffic-monitor] $*"
+}
+
+stop_children() {
+  log "Encerrando processos filhos..."
+  [[ -n "${analyzer_pid:-}"  ]] && kill "$analyzer_pid"  2>/dev/null || true
+  [[ -n "${bytes_pid:-}"     ]] && kill "$bytes_pid"     2>/dev/null || true
+  [[ -n "${dashboard_pid:-}" ]] && kill "$dashboard_pid" 2>/dev/null || true
+}
+
+trap 'log "Sinal recebido, encerrando..."; stop_children; wait || true; exit 0' TERM INT
+
+log "Iniciando traffic-analyzer..."
+"$ANALYZER" &
+analyzer_pid=$!
+log "traffic-analyzer.sh PID=$analyzer_pid"
+
+log "Iniciando traffic-bytes..."
+"$BYTES" &
+bytes_pid=$!
+log "traffic-bytes.sh PID=$bytes_pid"
+
+log "Iniciando traffic-dashboard (Node)..."
+node "$DASHBOARD_JS" &
+dashboard_pid=$!
+log "traffic-dashboard.js PID=$dashboard_pid"
+
+# Espera o primeiro filho encerrar
+wait -n
+log "Um dos processos encerrou. Encerrando os demais..."
+stop_children
+wait || true
+log "traffic-monitor finalizado."
+EOF
+
+  chmod 0755 "$BIN_DIR/traffic-monitor.sh"
+  chown "$TARGET_USER":"$TARGET_USER" "$BIN_DIR/traffic-monitor.sh"
+  log "  - traffic-monitor.sh -> $BIN_DIR/traffic-monitor.sh"
 }
 
 create_service() {
@@ -141,12 +169,12 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/traffic-monitor.sh
-WorkingDirectory=/opt/traffic-monitor
+ExecStart=/bin/bash /usr/local/bin/traffic-monitor.sh
+WorkingDirectory=/opt/traffic-dashboard
 Restart=on-failure
 RestartSec=5
 
-# Se quiser rodar como usuário normal (pode exigir capabilities no tshark/tcpdump), descomente:
+# Para rodar como usuário normal, descomente (e configure capacidades do tcpdump/tshark):
 #User=$TARGET_USER
 #Group=$TARGET_USER
 
@@ -168,21 +196,21 @@ EOF
 
 main() {
   require_root
-  log "Usuário alvo (dono do projeto): $TARGET_USER"
-  clean_target_layout
-  create_layout
-  copy_project_files
-  create_symlinks
-  fix_permissions
+  log "Usuário alvo (dono lógico): $TARGET_USER"
+
+  create_dirs
+  copy_scripts
+  copy_dashboard
+  copy_config
+  generate_wrapper
   create_service
 
   log "Concluído!"
-  log "Projeto em:   $BASE_DIR"
-  log "Scripts via:  /usr/local/bin/traffic-monitor.sh (e demais)"
-  log "Configs em:   $CONFIG_DIR (linkado em /etc/traffic-monitor)"
-  log "Logs em:      $LOG_DIR (linkado em /var/log/traffic-domains)"
-  log "Service:      traffic-monitor.service (habilitado e iniciado)"
+  log "Scripts em:      $BIN_DIR (traffic-analyzer.sh, traffic-bytes.sh, traffic-monitor.sh)"
+  log "Painel em:       $DASHBOARD_DIR (index.html, style.css, traffic-dashboard.js, ...)"
+  log "Config em:       $CONFIG_DIR (ignore-domains.txt)"
+  log "Logs em:         $LOG_DIR (preservados)"
+  log "Service:         traffic-monitor.service (habilitado e iniciado)"
 }
 
 main "$@"
-
