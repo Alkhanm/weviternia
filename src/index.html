@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic Monitor</title>
+  <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+  <link rel="stylesheet" type="text/css" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="title-block">
+        <h1>Traffic Monitor</h1>
+        <span class="tag">LAN Observer</span>
+        <span class="tag">Passive Sniffer</span>
+      </div>
+      <div class="status">
+        <span>{{ status }}</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls">
+        <label>
+          Cliente
+          <select v-model="selectedClient" @change="reloadAll">
+            <option value="all">Todos</option>
+            <option v-for="ip in clients" :key="ip" :value="ip">{{ ip }}</option>
+          </select>
+        </label>
+
+        <label>
+          Limite eventos
+          <input type="number" min="10" max="5000" v-model.number="limit" @change="reloadLogs" />
+        </label>
+
+        <label>
+          Janela
+          <select v-model="timeWindow">
+            <option value="all">Tudo</option>
+            <option value="30m">30 min</option>
+            <option value="1h">1 h</option>
+            <option value="2h">2 h</option>
+          </select>
+        </label>
+
+        <label>
+          Filtro texto
+          <input type="text" v-model="filterText" placeholder="domínio, IP, fonte..." />
+        </label>
+
+        <label>
+          Refresh (s)
+          <input type="number" min="5" max="300" v-model.number="refreshInterval" @change="setupAutoRefresh" />
+        </label>
+
+        <button @click="reloadAll">Atualizar agora</button>
+
+        <label class="toggle-group">
+          <input type="checkbox" v-model="groupMode" />
+          Agrupar por domínio
+        </label>
+      </section>
+
+      <div class="ignored-box" v-if="ignoredDomains.length">
+        <strong>Domínios ignorados:</strong>
+        <span
+          class="ignored-chip"
+          v-for="dom in ignoredDomains"
+          :key="dom"
+        >
+          <span class="chip-label">{{ dom }}</span>
+          <button
+            class="chip-remove"
+            @click="unignoreDomain(dom)"
+            title="Remover domínio da lista de ignorados"
+          >
+            ×
+          </button>
+        </span>
+      </div>
+
+      <section class="summary-section">
+        <div class="summary-header">
+          <h2>Resumo por cliente (sessão atual)</h2>
+          <span v-if="bytesData.updated_at" class="summary-meta">
+            Atualizado em {{ bytesData.updated_at }}
+          </span>
+        </div>
+        <table class="summary-table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>MB In</th>
+              <th>MB Out</th>
+              <th>MB Total</th>
+              <th>Online</th>
+              <th>Último acesso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in summaryRows" :key="row.ip">
+              <td>{{ row.ip }}</td>
+              <td>{{ row.mb_in.toFixed(3) }}</td>
+              <td>{{ row.mb_out.toFixed(3) }}</td>
+              <td>{{ row.mb_total.toFixed(3) }}</td>
+              <td>
+                <span :class="['status-pill', row.online ? 'online' : 'offline']">
+                  {{ row.online ? 'Online' : 'Offline' }}
+                </span>
+              </td>
+              <td>{{ row.lastSeen || '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="table-section">
+        <div class="table-header">
+          <h2>Eventos recentes</h2>
+        </div>
+        <div class="table-wrapper">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th class="ts" @click="changeSort('timestamp')">
+                  Horário
+                  <span class="sort-indicator" v-if="sortKey === 'timestamp'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th class="client" @click="changeSort('client')">
+                  Cliente
+                  <span class="sort-indicator" v-if="sortKey === 'client'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th class="ip" @click="changeSort('remote_ip')">
+                  IP remoto
+                  <span class="sort-indicator" v-if="sortKey === 'remote_ip'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th class="count" @click="changeSort('count')">
+                  Qtd
+                  <span class="sort-indicator" v-if="sortKey === 'count'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th class="source" @click="changeSort('source')">
+                  Fonte
+                  <span class="sort-indicator" v-if="sortKey === 'source'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
+                </th>
+                <th class="text">
+                  Detalhes
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="entry in displayLogs" :key="entry.key">
+                <td class="ts">
+                  <span class="ts-date">{{ formatDatePart(entry.timestamp) }}</span>
+                  <span class="ts-time">{{ formatTimePart(entry.timestamp) }}</span>
+                </td>
+                <td class="client">{{ entry.client }}</td>
+                <td class="ip">
+                  <a
+                    v-if="entry.remote_ip"
+                    :href="'http://' + entry.remote_ip"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {{ entry.remote_ip }}
+                  </a>
+                  <span v-else>-</span>
+                  <button
+                    v-if="entry.remote_ip"
+                    class="ipinfo-btn"
+                    @click.stop="openIpInfo(entry.remote_ip)"
+                    title="Abrir ipinfo.io"
+                  >
+                    ipinfo
+                  </button>
+                </td>
+                <td class="count">{{ entry.count || 1 }}</td>
+                <td class="source">{{ entry.source || '-' }}</td>
+                <td class="text">
+                  <span v-html="highlight(entry.raw || '')"></span>
+                  <button
+                    v-if="entry.domain"
+                    class="ignore-btn"
+                    @click.stop="ignoreDomain(entry.domain)"
+                    title="Ignorar futuras entradas deste domínio"
+                  >
+                    Ignorar domínio
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          status: 'Carregando...',
+          clients: [],
+          selectedClient: 'all',
+          limit: 500,
+          timeWindow: 'all',
+          filterText: '',
+          refreshInterval: 10,
+          refreshTimerId: null,
+          logsRaw: [],
+          bytesData: { updated_at: null, clients: {} },
+          lastSeenByClient: {},
+          sortKey: 'timestamp',
+          sortDir: 'desc',
+          groupMode: false,
+          ONLINE_THRESHOLD_SECONDS: 120,
+          ignoredDomains: []
+        };
+      },
+
+      computed: {
+        summaryRows() {
+          const rows = [];
+          const clients = this.bytesData.clients || {};
+          const lastSeen = this.lastSeenByClient || {};
+          const now = Date.now();
+
+          for (const ip of Object.keys(clients).sort()) {
+            const info = clients[ip];
+            const last = lastSeen[ip];
+            let online = false;
+            let lastSeenStr = null;
+
+            if (last && last.ts) {
+              const diffSec = (now - last.ts.getTime()) / 1000;
+              online = diffSec <= this.ONLINE_THRESHOLD_SECONDS;
+              lastSeenStr = this.formatTimestamp(last.ts);
+            }
+
+            rows.push({
+              ip,
+              mb_in: info.mb_in || 0,
+              mb_out: info.mb_out || 0,
+              mb_total: info.mb_total || 0,
+              online,
+              lastSeen: lastSeenStr
+            });
+          }
+          return rows;
+        },
+
+        displayLogs() {
+          let logs = this.logsRaw || [];
+          const filter = this.filterText.trim().toLowerCase();
+          const minDate = this.getTimeWindowMinDate();
+
+          // janela
+          if (minDate) {
+            logs = logs.filter(entry => {
+              if (!entry.timestamp) return false;
+              const dt = this.parseTimestampToDate(entry.timestamp);
+              if (!dt) return false;
+              return dt >= minDate;
+            });
+          }
+
+          // ignorados
+          if (this.ignoredDomains.length > 0) {
+            logs = logs.filter(entry => {
+              if (!entry.domain) return true;
+              return !this.ignoredDomains.includes(entry.domain);
+            });
+          }
+
+          // filtro texto (no raw)
+          if (filter) {
+            logs = logs.filter(entry =>
+              (entry.raw || '').toLowerCase().includes(filter)
+            );
+          }
+
+          // alimenta lastSeenByClient
+          this.lastSeenByClient = this.computeLastSeen(logs);
+
+          // agrupar?
+          if (this.groupMode) {
+            const grouped = new Map();
+            for (const e of logs) {
+              const key = `${e.domain || ''}||${e.client || ''}||${e.remote_ip || ''}||${e.source || ''}`;
+              const existing = grouped.get(key);
+              const dt = this.parseTimestampToDate(e.timestamp);
+              if (!existing) {
+                grouped.set(key, {
+                  ...e,
+                  count: 1,
+                  key
+                });
+              } else {
+                existing.count += 1;
+                const existingDate = this.parseTimestampToDate(existing.timestamp);
+                if (dt && existingDate && dt > existingDate) {
+                  existing.timestamp = e.timestamp;
+                  existing.raw = e.raw;
+                }
+              }
+            }
+            logs = Array.from(grouped.values());
+          } else {
+            logs = logs.map((e, idx) => ({ ...e, count: 1, key: `${e.timestamp}-${idx}` }));
+          }
+
+          // ordenação
+          logs.sort((a, b) => {
+            const dir = this.sortDir === 'asc' ? 1 : -1;
+            const k = this.sortKey;
+
+            if (k === 'timestamp') {
+              const da = this.parseTimestampToDate(a.timestamp);
+              const db = this.parseTimestampToDate(b.timestamp);
+              const va = da ? da.getTime() : 0;
+              const vb = db ? db.getTime() : 0;
+              return (va - vb) * dir;
+            }
+
+            if (k === 'count') {
+              const va = a.count || 0;
+              const vb = b.count || 0;
+              return (va - vb) * dir;
+            }
+
+            const va = (a[k] || '').toString();
+            const vb = (b[k] || '').toString();
+            if (va < vb) return -1 * dir;
+            if (va > vb) return  1 * dir;
+            return 0;
+          });
+
+          return logs;
+        }
+      },
+
+      methods: {
+        async fetchJSON(url) {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        },
+
+        async loadClients() {
+          try {
+            const data = await this.fetchJSON('/clients');
+            this.clients = data.clients || [];
+          } catch (e) {
+            console.error('Erro ao carregar /clients', e);
+            this.clients = [];
+          }
+        },
+
+        async loadIgnoredDomains() {
+          try {
+            const data = await this.fetchJSON('/ignored-domains');
+            this.ignoredDomains = data.domains || [];
+          } catch (e) {
+            console.error('Erro ao carregar /ignored-domains', e);
+            this.ignoredDomains = [];
+          }
+        },
+
+        async loadLogs() {
+          try {
+            this.status = 'Carregando logs...';
+
+            const params = new URLSearchParams();
+            params.set('limit', this.limit || 500);
+            if (this.selectedClient && this.selectedClient !== 'all') {
+              params.set('client', this.selectedClient);
+            }
+
+            const data = await this.fetchJSON('/logs?' + params.toString());
+            this.logsRaw = data.entries || [];
+
+            this.status = `Carregado: ${this.logsRaw.length} eventos`;
+          } catch (e) {
+            console.error('Erro ao carregar /logs', e);
+            this.logsRaw = [];
+            this.status = 'Erro ao carregar logs';
+          }
+        },
+
+        async loadBytes() {
+          try {
+            const data = await this.fetchJSON('/bytes');
+            this.bytesData = data || { updated_at: null, clients: {} };
+          } catch (e) {
+            console.error('Erro ao carregar /bytes', e);
+            this.bytesData = { updated_at: null, clients: {} };
+          }
+        },
+
+        async reloadAll() {
+          await this.loadLogs();
+          await this.loadBytes();
+        },
+
+        getTimeWindowMinDate() {
+          const now = new Date();
+          const tw = this.timeWindow;
+          if (tw === 'all') return null;
+
+          const d = new Date(now);
+          if (tw === '30m') d.setMinutes(d.getMinutes() - 30);
+          else if (tw === '1h') d.setHours(d.getHours() - 1);
+          else if (tw === '2h') d.setHours(d.getHours() - 2);
+          return d;
+        },
+
+        parseTimestampToDate(ts) {
+          if (!ts) return null;
+          // "2025-12-01 19:29:20"
+          const parts = ts.split(' ');
+          if (parts.length < 2) return null;
+          const iso = parts[0] + 'T' + parts[1];
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return null;
+          return d;
+        },
+
+        formatTimestamp(d) {
+          if (!d) return '';
+          const pad = n => (n < 10 ? '0' + n : '' + n);
+          const y = d.getFullYear();
+          const m = pad(d.getMonth() + 1);
+          const day = pad(d.getDate());
+          const h = pad(d.getHours());
+          const mi = pad(d.getMinutes());
+          const s = pad(d.getSeconds());
+          return `${y}-${m}-${day} ${h}:${mi}:${s}`;
+        },
+
+        computeLastSeen(logs) {
+          const map = {};
+          for (const e of logs) {
+            if (!e.client || !e.timestamp) continue;
+            const d = this.parseTimestampToDate(e.timestamp);
+            if (!d) continue;
+            const existing = map[e.client];
+            if (!existing || d > existing.ts) {
+              map[e.client] = {
+                ts: d,
+                raw: e.raw
+              };
+            }
+          }
+          return map;
+        },
+
+        highlight(text) {
+          const term = this.filterText.trim();
+          if (!term) return this.escapeHtml(text);
+          const escTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const re = new RegExp(escTerm, 'gi');
+          return this.escapeHtml(text).replace(re, m => `<mark>${m}</mark>`);
+        },
+
+        escapeHtml(str) {
+          return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        },
+
+        changeSort(key) {
+          if (this.sortKey === key) {
+            this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            this.sortKey = key;
+            this.sortDir = key === 'timestamp' ? 'desc' : 'asc';
+          }
+        },
+
+        setupAutoRefresh() {
+          if (this.refreshTimerId) {
+            clearInterval(this.refreshTimerId);
+            this.refreshTimerId = null;
+          }
+          const intervalMs = (this.refreshInterval || 10) * 1000;
+          this.refreshTimerId = setInterval(() => {
+            this.reloadAll();
+          }, intervalMs);
+        },
+
+        formatDatePart(ts) {
+          if (!ts) return '';
+          const parts = ts.split(' ');
+          return parts[0] || ts;
+        },
+
+        formatTimePart(ts) {
+          if (!ts) return '';
+          const parts = ts.split(' ');
+          return parts[1] || ts;
+        },
+
+        openIpInfo(ip) {
+          if (!ip) return;
+          window.open('https://ipinfo.io/' + encodeURIComponent(ip), '_blank');
+        },
+
+        async ignoreDomain(domain) {
+          if (!domain) return;
+          try {
+            const res = await fetch('/ignored-domains', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ domain })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            this.ignoredDomains = data.domains || [];
+            await this.loadLogs();
+          } catch (e) {
+            console.error('Erro ao ignorar domínio', domain, e);
+          }
+        },
+
+        async unignoreDomain(domain) {
+          if (!domain) return;
+          try {
+            const res = await fetch('/ignored-domains?domain=' + encodeURIComponent(domain), {
+              method: 'DELETE'
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            this.ignoredDomains = data.domains || [];
+            await this.loadLogs();
+          } catch (e) {
+            console.error('Erro ao remover domínio ignorado', domain, e);
+          }
+        }
+      },
+
+      async mounted() {
+        await this.loadClients();
+        await this.loadIgnoredDomains();
+        await this.reloadAll();
+        this.setupAutoRefresh();
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
+
