@@ -92,25 +92,25 @@
         <table class="summary-table">
           <thead>
             <tr>
+              <th>Último acesso</th>
               <th>Cliente</th>
               <th>MB Recebido</th>
               <th>MB Enviado</th>
               <th>MB Total</th>
               <th>Online</th>
-              <th>Último acesso</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in summaryRows" :key="row.ip">
-              <td>{{ row.ip }}</td>
-              <td>{{ row.mb_in.toFixed(3) }}</td>
-              <td>{{ row.mb_out.toFixed(3) }}</td>
-              <td>{{ row.mb_total.toFixed(3) }}</td>
               <td>
                 <span :class="['status-pill', row.online ? 'online' : 'offline']">
                   {{ row.online ? 'Online' : 'Offline' }}
                 </span>
               </td>
+              <td>{{ row.ip }}</td>
+              <td>{{ row.mb_in.toFixed(3) }}</td>
+              <td>{{ row.mb_out.toFixed(3) }}</td>
+              <td>{{ row.mb_total.toFixed(3) }}</td>
               <td>{{ formatTimePart(row.lastSeen) || '-' }}</td>
             </tr>
           </tbody>
@@ -146,7 +146,7 @@
                 <th class="text">
                   Dominio
                 </th>
-                <th class="count" @click="changeSort('count')">
+                <th v-if="groupMode" class="count" @click="changeSort('count')">
                   Qtd
                   <span class="sort-indicator" v-if="sortKey === 'count'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
@@ -188,7 +188,7 @@
                     Ignorar domínio
                   </button>
                 </td>
-                <td class="count">{{ entry.count || 1 }}</td>
+                <td v-if="groupMode" class="count">{{ entry.count || 1 }}</td>
                 <td class="source source-col">{{ entry.source || '-' }}</td>
                 <td class="text">
                   <span v-html="highlight(entry.raw || '')"></span>
