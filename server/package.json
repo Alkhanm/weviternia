@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "build": "npx tsc -p tsconfig.server.json",
+    "dev": "npm run build && node ./dist/src/server.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
