@@ -7,6 +7,7 @@ const http_1 = __importDefault(require("http"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const url_1 = require("url");
+const node_zlib_1 = __importDefault(require("node:zlib"));
 const HOST = '0.0.0.0';
 const PORT = Number(process.env.PORT ?? 9080);
 // diretório de instalação: /opt/traffic-monitor
@@ -31,6 +32,26 @@ const MIME_MAP = {
     '.ico': 'image/x-icon',
     '.json': 'application/json; charset=utf-8',
 };
+/**
+ * dateStr: "YYYY-MM-DD" ou vazio/undefined para hoje.
+ * Retorna caminho do arquivo + flag se está gzipado.
+ */
+function resolveLogPathForDate(dateStr) {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+    // Se não veio data ou é hoje → arquivo atual
+    if (!dateStr || dateStr === todayStr) {
+        const exists = fs_1.default.existsSync(LOG_FILE);
+        return { file: LOG_FILE, gz: false, exists };
+    }
+    const ymd = dateStr.replace(/[^0-9]/g, ''); // 2025-12-03 → 20251203
+    const candidate = `${LOG_FILE}-${ymd}`; // ex: traffic-domains.log-20251202
+    console.log(candidate);
+    if (fs_1.default.existsSync(candidate)) {
+        return { file: candidate, gz: false, exists: true };
+    }
+    return { file: candidate, gz: false, exists: false };
+}
 // ------------------------
 // helpers HTTP
 // ------------------------
@@ -122,6 +143,31 @@ function writeIgnoredDomains(domains) {
         console.error('[ignored-domains] erro ao gravar arquivo:', e);
     }
 }
+function formatDate(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+/**
+ * Tenta descobrir quais dias recentes têm log.
+ * Simples: olha hoje e X dias pra trás e verifica se o arquivo existe.
+ */
+function handleLogDays(_req, res) {
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 30; i++) { // 30 dias pra trás
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dayStr = formatDate(d);
+        console.log(dayStr);
+        const resolved = resolveLogPathForDate(dayStr);
+        if (resolved.exists) {
+            days.push(dayStr);
+        }
+    }
+    sendJson(res, { days });
+}
 // ------------------------
 // handlers ignored-domains
 // ------------------------
@@ -210,18 +256,21 @@ function getQueryStringParam(query, key, defaultValue = '') {
     return defaultValue;
 }
 function handleLogs(_req, res, query) {
-    const clientFilter = getQueryStringParam(query, 'client').trim();
-    const limitStr = getQueryStringParam(query, 'limit', '1000');
-    const limitNum = parseInt(limitStr, 10);
-    const limit = Math.max(1, Math.min(limitNum || 1000, 5000));
+    const clientFilter = (query.client || '').trim();
+    const limit = Math.max(1, Math.min(parseInt(query.limit || '1000', 10) || 1000, 5000));
+    const dateStr = (query.date || '').trim() || null;
+    const resolved = resolveLogPathForDate(dateStr);
+    if (!resolved.exists) {
+        return sendJson(res, { entries: [], date: dateStr });
+    }
     let content = '';
     try {
-        content = fs_1.default.readFileSync(LOG_FILE, 'utf8');
+        const buf = fs_1.default.readFileSync(resolved.file);
+        content = resolved.gz ? node_zlib_1.default.gunzipSync(buf).toString('utf8') : buf.toString('utf8');
     }
     catch (e) {
-        console.error('[logs] erro ao ler LOG_FILE', e);
-        sendJson(res, { entries: [] });
-        return;
+        console.error('[logs] erro ao ler', resolved.file, e);
+        return sendJson(res, { entries: [], date: dateStr });
     }
     const lines = content.split('\n');
     const entries = [];
@@ -240,7 +289,7 @@ function handleLogs(_req, res, query) {
             break;
     }
     entries.reverse();
-    sendJson(res, { entries });
+    sendJson(res, { entries, date: dateStr });
 }
 // ------------------------
 // /bytes
@@ -300,6 +349,8 @@ const server = http_1.default.createServer(async (req, res) => {
     }
     if (pathname === '/logs' && method === 'GET')
         return handleLogs(req, res, parsed.query);
+    if (pathname === '/log-days' && req.method === 'GET')
+        return handleLogDays(req, res);
     if (pathname === '/bytes' && method === 'GET')
         return handleBytes(req, res);
     if (pathname === '/clients' && method === 'GET')

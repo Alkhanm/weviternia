@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { parse as parseUrl } from 'url';
 import type { ParsedUrlQuery } from 'querystring';
+import zlib from 'node:zlib';
+import url from 'node:url';
 
 const HOST = '0.0.0.0';
 const PORT = Number(process.env.PORT ?? 9080);
@@ -14,24 +16,49 @@ const BASE_DIR = path.join(__dirname, '..');
 const WEB_DIR = path.join(BASE_DIR, 'web');
 
 // arquivos de log/config continuam como estavam:
-const LOG_FILE   = process.env.LOG_FILE   || '/var/log/traffic-domains/traffic-domains.log';
+const LOG_FILE = process.env.LOG_FILE || '/var/log/traffic-domains/traffic-domains.log';
 const BYTES_FILE = process.env.BYTES_FILE || '/var/log/traffic-domains/traffic-bytes.json';
 const IGNORE_FILE = process.env.IGNORE_FILE || '/etc/traffic-monitor/ignore-domains.txt';
 
 // mapa simples de Content-Type
 const MIME_MAP: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
-  '.htm':  'text/html; charset=utf-8',
-  '.js':   'application/javascript; charset=utf-8',
-  '.mjs':  'application/javascript; charset=utf-8',
-  '.css':  'text/css; charset=utf-8',
-  '.png':  'image/png',
-  '.jpg':  'image/jpeg',
+  '.htm': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.svg':  'image/svg+xml',
-  '.ico':  'image/x-icon',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
 };
+
+
+/**
+ * dateStr: "YYYY-MM-DD" ou vazio/undefined para hoje.
+ * Retorna caminho do arquivo + flag se está gzipado.
+ */
+function resolveLogPathForDate(dateStr?: string | null): { file: string; gz: boolean; exists: boolean } {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // Se não veio data ou é hoje → arquivo atual
+  if (!dateStr || dateStr === todayStr) {
+    const exists = fs.existsSync(LOG_FILE);
+    return { file: LOG_FILE, gz: false, exists };
+  }
+
+  const ymd = dateStr.replace(/[^0-9]/g, ''); // 2025-12-03 → 20251203
+
+  const candidate = `${LOG_FILE}-${ymd}`;      // ex: traffic-domains.log-20251202
+  if (fs.existsSync(candidate)) {
+    return { file: candidate, gz: false, exists: true };
+  }
+
+  return { file: candidate, gz: false, exists: false };
+}
 
 // ------------------------
 // helpers HTTP
@@ -140,6 +167,35 @@ function writeIgnoredDomains(domains: string[]): void {
   }
 }
 
+function formatDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Tenta descobrir quais dias recentes têm log.
+ * Simples: olha hoje e X dias pra trás e verifica se o arquivo existe.
+ */
+function handleLogDays(_req: http.IncomingMessage, res: http.ServerResponse) {
+  const days: string[] = [];
+  const today = new Date();
+
+  for (let i = 0; i < 30; i++) { // 30 dias pra trás
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dayStr = formatDate(d);
+    const resolved = resolveLogPathForDate(dayStr);
+    if (resolved.exists) {
+      days.push(dayStr);
+    }
+  }
+
+  sendJson(res, { days });
+}
+
+
 // ------------------------
 // handlers ignored-domains
 // ------------------------
@@ -234,11 +290,11 @@ function parseLogLine(line: string): ParsedLogEntry | null {
   if (!m) return null;
 
   const timestamp = m[1].trim();
-  const client    = m[2].trim();
-  const host      = m[3].trim();
+  const client = m[2].trim();
+  const host = m[3].trim();
   const remote_ip = m[4].trim();
-  const source    = (m[5] || '').trim();
-  const domain    = host; // tratamos host como “domínio principal”
+  const source = (m[5] || '').trim();
+  const domain = host; // tratamos host como “domínio principal”
 
   return {
     timestamp,
@@ -266,27 +322,28 @@ function getQueryStringParam(
   return defaultValue;
 }
 
-function handleLogs(
-  _req: IncomingMessage,
-  res: ServerResponse,
-  query: ParsedUrlQuery
-): void {
-  const clientFilter = getQueryStringParam(query, 'client').trim();
-  const limitStr = getQueryStringParam(query, 'limit', '1000');
-  const limitNum = parseInt(limitStr, 10);
-  const limit = Math.max(1, Math.min(limitNum || 1000, 5000));
+function handleLogs(_req: http.IncomingMessage, res: http.ServerResponse, query: any) {
+  const clientFilter = (query.client || '').trim();
+  const limit = Math.max(1, Math.min(parseInt(query.limit || '1000', 10) || 1000, 5000));
+
+  const dateStr = (query.date || '').trim() || null;
+  const resolved = resolveLogPathForDate(dateStr);
+
+  if (!resolved.exists) {
+    return sendJson(res, { entries: [], date: dateStr });
+  }
 
   let content = '';
   try {
-    content = fs.readFileSync(LOG_FILE, 'utf8');
+    const buf = fs.readFileSync(resolved.file);
+    content = resolved.gz ? zlib.gunzipSync(buf).toString('utf8') : buf.toString('utf8');
   } catch (e) {
-    console.error('[logs] erro ao ler LOG_FILE', e);
-    sendJson(res, { entries: [] });
-    return;
+    console.error('[logs] erro ao ler', resolved.file, e);
+    return sendJson(res, { entries: [], date: dateStr });
   }
 
   const lines = content.split('\n');
-  const entries: ParsedLogEntry[] = [];
+  const entries: any[] = [];
 
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i].trim();
@@ -303,7 +360,7 @@ function handleLogs(
   }
 
   entries.reverse();
-  sendJson(res, { entries });
+  sendJson(res, { entries, date: dateStr });
 }
 
 // ------------------------
@@ -366,14 +423,15 @@ const server = http.createServer(async (req: IncomingMessage, res: ServerRespons
   // --- Rotas de API primeiro ---
 
   if (pathname === '/ignored-domains') {
-    if (method === 'GET')  return handleGetIgnoredDomains(req, res);
+    if (method === 'GET') return handleGetIgnoredDomains(req, res);
     if (method === 'POST') return handlePostIgnoredDomains(req, res);
     if (method === 'DELETE') return handleDeleteIgnoredDomains(req, res, parsed.query as ParsedUrlQuery);
   }
 
-  if (pathname === '/logs'   && method === 'GET') return handleLogs(req, res, parsed.query as ParsedUrlQuery);
-  if (pathname === '/bytes'  && method === 'GET') return handleBytes(req, res);
-  if (pathname === '/clients'&& method === 'GET') return handleClients(req, res);
+  if (pathname === '/logs' && method === 'GET') return handleLogs(req, res, parsed.query as ParsedUrlQuery);
+  if (pathname === '/log-days' && req.method === 'GET') return handleLogDays(req, res);
+  if (pathname === '/bytes' && method === 'GET') return handleBytes(req, res);
+  if (pathname === '/clients' && method === 'GET') return handleClients(req, res);
 
   // --- Fallback: servir estático do WEB_DIR ---
   if (method === 'GET') {
@@ -386,5 +444,5 @@ const server = http.createServer(async (req: IncomingMessage, res: ServerRespons
 
 
 server.listen(PORT, HOST, () => {
-  console.log(`Traffic dashboard API ouvindo em http://${HOST}:${PORT}/`);
+  console.log(`Weviternia API ouvindo em http://${HOST}:${PORT}/`);
 });

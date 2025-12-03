@@ -52,6 +52,16 @@
           <input type="number" min="5" max="300" v-model.number="refreshInterval" @change="setupAutoRefresh" />
         </label>
 
+        <label>
+          Dia
+          <select v-model="selectedDay" @change="reloadLogs">
+            <option value="">Hoje</option>
+            <option v-for="d in availableDays" :key="d" :value="d">
+              {{ d }}
+            </option>
+          </select>
+        </label>
+
         <button @click="reloadAll">Atualizar agora</button>
 
         <button v-if="ignoredDomains.length" class="chip-toggle-btn" @click="toggleIgnoredBox">
@@ -233,13 +243,26 @@ const ONLINE_THRESHOLD_SECONDS = 120;
 const ignoredDomains = ref<string[]>([]);
 const showIgnoredBox = ref<boolean>(false);
 
+const availableDays = ref<string[]>([]);
+const selectedDay = ref<string>(''); // '' = hoje
+
 // --------------------------
 // helpers básicos
 // --------------------------
 async function fetchJSON<T = any>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as T;
+  return res.json() as Promise<T>;
+}
+
+async function loadLogDays() {
+  try {
+    const data = await fetchJSON<{ days: string[] }>('/log-days');
+    availableDays.value = data.days || [];
+  } catch (e) {
+    console.error('Erro ao carregar /log-days', e);
+    availableDays.value = [];
+  }
 }
 
 function parseTimestampToDate(ts: string | null): Date | null {
@@ -484,17 +507,22 @@ async function loadIgnoredDomains(): Promise<void> {
   }
 }
 
-async function loadLogs(): Promise<void> {
+async function loadLogs() {
   try {
     status.value = 'Carregando logs...';
 
     const params = new URLSearchParams();
-    params.set('limit', (limit.value || 500).toString());
+    params.set('limit', String(limit.value || 500));
+
     if (selectedClient.value && selectedClient.value !== 'all') {
       params.set('client', selectedClient.value);
     }
 
-    const data = await fetchJSON<{ entries: LogEntryRaw[] }>('/logs?' + params.toString());
+    if (selectedDay.value) {
+      params.set('date', selectedDay.value); // YYYY-MM-DD
+    }
+
+    const data = await fetchJSON<{ entries: any[] }>('/logs?' + params.toString());
     logsRaw.value = data.entries || [];
 
     status.value = `Carregado: ${logsRaw.value.length} eventos`;
@@ -504,6 +532,7 @@ async function loadLogs(): Promise<void> {
     status.value = 'Erro ao carregar logs';
   }
 }
+
 
 async function loadBytes(): Promise<void> {
   try {
@@ -590,8 +619,11 @@ function toggleIgnoredBox(): void {
 // lifecycle
 // --------------------------
 onMounted(async () => {
-  await loadClients();
-  await loadIgnoredDomains();
+  await Promise.all([
+    loadClients(),
+    loadIgnoredDomains(),
+    loadLogDays()
+  ]);
   await reloadAll();
   setupAutoRefresh();
 });
