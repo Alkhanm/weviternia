@@ -67,6 +67,43 @@ header h1 {
   background: rgba(15, 23, 42, 0.9);
 }
 
+/* Botão de exportar: discreto, cinza e mais "quadrado" */
+.controls .export-btn {
+  background: #4b5563;
+  /* cinza médio */
+  color: #e5e7eb;
+  /* quase branco */
+  border: 1px solid #6b7280;
+  /* borda cinza */
+  border-radius: 4px;
+  /* quase quadrado */
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  box-shadow: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.controls .export-btn:hover {
+  background: #374151;
+  /* um pouco mais escuro no hover */
+  border-color: #6b7280;
+}
+
+.controls .export-btn:active {
+  background: #1f2933;
+  transform: none;
+  /* sem "afundar" demais */
+}
+
+.controls .export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .status {
   font-size: 11px;
   color: #9ca3af;
@@ -467,6 +504,10 @@ td.domain {
     font-size: 14px;
   }
 
+  .export-btn {
+    display: none;
+  }
+
   header {
     flex-wrap: wrap;
     align-items: flex-start;
@@ -546,12 +587,16 @@ td.domain {
     font-size: 16px;
   }
 
+  td.text {
+    max-width: 260px;
+  }
+
   .ipinfo-btn {
     display: none;
   }
 
-  td.text {
-    max-width: 260px;
+  .export-btn {
+    display: none !important;
   }
 
   /* Resumo: esconde MB in/out, mostra só total + status */

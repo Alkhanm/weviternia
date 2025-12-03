@@ -25,7 +25,7 @@
 
         <label>
           Limite eventos
-          <input type="number" min="10" max="5000" v-model.number="limit" @change="reloadLogs" />
+          <input type="number" min="10" max="10000" v-model.number="limit" @change="reloadLogs" />
         </label>
 
         <label>
@@ -62,11 +62,12 @@
           </select>
         </label>
 
-        <button @click="reloadAll">Atualizar agora</button>
-
         <button v-if="ignoredDomains.length" class="chip-toggle-btn" @click="toggleIgnoredBox">
-          {{ showIgnoredBox ? 'Ocultar domínios ignorados' : `Mostrar domínios ignorados (${ignoredDomains.length})`
+          {{ showIgnoredBox ? 'Ocultar domínios ignorados' : `Ver domínios ignorados (${ignoredDomains.length})`
           }}
+        </button>
+        <button class="export-btn" @click="exportCsv">
+          Exportar CSV
         </button>
       </section>
 
@@ -331,6 +332,66 @@ function openIpInfo(ip: string | null): void {
   if (!ip) return;
   window.open(`https://ipinfo.io/${encodeURIComponent(ip)}`, '_blank');
 }
+
+function exportCsv() {
+  const rows = displayLogs.value;
+  if (!rows || rows.length === 0) {
+    alert('Nenhum dado para exportar com os filtros atuais.');
+    return;
+  }
+
+  // Cabeçalho do CSV
+  const header = [
+    'timestamp',
+    'cliente',
+    'remote_ip',
+    'dominio',
+    'fonte',
+    'quantidade',
+    'raw'
+  ];
+
+  const lines: string[] = [];
+  lines.push(header.join(';')); // ; funciona melhor no Excel PT-BR
+
+  for (const e of rows) {
+    const cells = [
+      e.timestamp || '',
+      e.client || '',
+      e.remote_ip || '',
+      e.domain || '',
+      e.source || '',
+      (e.count ?? 1).toString(),
+      (e.raw || '').replace(/\s+/g, ' ').trim()
+    ];
+
+    // Escapa aspas e envolve em ""
+    const escaped = cells.map(c => `"${c.replace(/"/g, '""')}"`);
+    lines.push(escaped.join(';'));
+  }
+
+  const csvContent = lines.join('\n');
+
+  const blob = new Blob([csvContent], {
+    type: 'text/csv;charset=utf-8;'
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const day = selectedDay.value || today; // selectedDay vem do filtro de dia
+
+  a.href = url;
+  a.download = `traffic-logs-${day}.csv`;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 
 // --------------------------
 // derivado: logs filtrados

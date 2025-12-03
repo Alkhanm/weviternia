@@ -3,8 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import { parse as parseUrl } from 'url';
 import type { ParsedUrlQuery } from 'querystring';
-import zlib from 'node:zlib';
-import url from 'node:url';
 
 const HOST = '0.0.0.0';
 const PORT = Number(process.env.PORT ?? 9080);
@@ -40,24 +38,24 @@ const MIME_MAP: Record<string, string> = {
  * dateStr: "YYYY-MM-DD" ou vazio/undefined para hoje.
  * Retorna caminho do arquivo + flag se está gzipado.
  */
-function resolveLogPathForDate(dateStr?: string | null): { file: string; gz: boolean; exists: boolean } {
+function resolveLogPathForDate(dateStr?: string | null): { file: string; exists: boolean } {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
 
   // Se não veio data ou é hoje → arquivo atual
   if (!dateStr || dateStr === todayStr) {
     const exists = fs.existsSync(LOG_FILE);
-    return { file: LOG_FILE, gz: false, exists };
+    return { file: LOG_FILE, exists };
   }
 
   const ymd = dateStr.replace(/[^0-9]/g, ''); // 2025-12-03 → 20251203
 
   const candidate = `${LOG_FILE}-${ymd}`;      // ex: traffic-domains.log-20251202
   if (fs.existsSync(candidate)) {
-    return { file: candidate, gz: false, exists: true };
+    return { file: candidate,  exists: true };
   }
 
-  return { file: candidate, gz: false, exists: false };
+  return { file: candidate, exists: false };
 }
 
 // ------------------------
@@ -336,7 +334,7 @@ function handleLogs(_req: http.IncomingMessage, res: http.ServerResponse, query:
   let content = '';
   try {
     const buf = fs.readFileSync(resolved.file);
-    content = resolved.gz ? zlib.gunzipSync(buf).toString('utf8') : buf.toString('utf8');
+    content = buf.toString('utf8');
   } catch (e) {
     console.error('[logs] erro ao ler', resolved.file, e);
     return sendJson(res, { entries: [], date: dateStr });
@@ -413,7 +411,7 @@ function handleClients(
 // servidor HTTP
 // ------------------------
 
-const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
+const server = http.createServer(async (req: IncomingMessage, res: ServerResponse,) => {
   if (!req.url) return sendText(res, 'Bad request', 400);
 
   const parsed = parseUrl(req.url, true);
