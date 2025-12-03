@@ -1,7 +1,7 @@
 // src/types.ts
 
 export type SortKey = 'timestamp' | 'client' | 'remote_ip' | 'count' | 'source';
-export type TimeWindow = 'all' | '30m' | '1h' | '2h';
+export type TimeWindow = 'all' | '1h' | '2h'  | '4h'  | '8h'  | '16h'  | '24h';
 
 export interface LogEntryRaw {
   timestamp: string;

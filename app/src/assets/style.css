@@ -220,6 +220,10 @@ table.log-table {
   color: #9ca3af;
 }
 
+.ts-date {
+  margin-right: .3em;
+}
+
 .ts-date,
 .ts-time {
   white-space: nowrap;
@@ -395,9 +399,19 @@ td.text {
     max-width: 260px;
   }
 
- .log-table thead th:nth-child(5),
- .log-table tbody td:nth-child(5),
- .log-table thead th:nth-child(6),
+
+  .summary-table thead th:nth-child(3),
+  .summary-table tbody td:nth-child(3),
+  .summary-table thead th:nth-child(4),
+  .summary-table tbody td:nth-child(4){
+    display: none;
+  }
+
+  .log-table thead th:nth-child(3),
+  .log-table tbody td:nth-child(3),
+  .log-table thead th:nth-child(5),
+  .log-table tbody td:nth-child(5),
+  .log-table thead th:nth-child(6),
   .log-table tbody td:nth-child(6),
   .log-table thead th:nth-child(7),
   .log-table tbody td:nth-child(7) {

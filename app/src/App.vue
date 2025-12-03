@@ -2,7 +2,7 @@
   <div>
     <header>
       <div class="title-block">
-        <h1>Traffic Monitor</h1>
+        <h1>Monitoramento de Rede</h1>
         <span class="tag">LAN Observer</span>
         <span class="tag">Passive Sniffer</span>
       </div>
@@ -35,6 +35,10 @@
             <option value="30m">30 min</option>
             <option value="1h">1 h</option>
             <option value="2h">2 h</option>
+            <option value="4h">4 h</option>
+            <option value="8h">8 h</option>
+            <option value="16h">16 h</option>
+            <option value="24h">24 h</option>
           </select>
         </label>
 
@@ -212,10 +216,10 @@ import type {
 const status = ref<string>('Carregando...');
 const clients = ref<string[]>([]);
 const selectedClient = ref<string>('all');
-const limit = ref<number>(500);
+const limit = ref<number>(5000);
 const timeWindow = ref<TimeWindow>('all');
 const filterText = ref<string>('');
-const refreshInterval = ref<number>(10);
+const refreshInterval = ref<number>(3);
 const refreshTimerId = ref<number | null>(null);
 
 const logsRaw = ref<LogEntryRaw[]>([]);
@@ -223,7 +227,7 @@ const bytesData = ref<BytesData>({ updated_at: null, clients: {} });
 
 const sortKey = ref<SortKey>('timestamp');
 const sortDir = ref<'asc' | 'desc'>('desc');
-const groupMode = ref<boolean>(false);
+const groupMode = ref<boolean>(true);
 
 const ONLINE_THRESHOLD_SECONDS = 120;
 
@@ -264,11 +268,13 @@ function getTimeWindowMinDate(): Date | null {
   const now = new Date();
   const tw = timeWindow.value;
   if (tw === 'all') return null;
-
   const d = new Date(now);
-  if (tw === '30m') d.setMinutes(d.getMinutes() - 30);
-  else if (tw === '1h') d.setHours(d.getHours() - 1);
+  if (tw === '1h') d.setHours(d.getHours() - 1);
   else if (tw === '2h') d.setHours(d.getHours() - 2);
+  else if (tw === '4h') d.setHours(d.getHours() - 4);
+  else if (tw === '8h') d.setHours(d.getHours() - 8);
+  else if (tw === '16h') d.setHours(d.getHours() - 16);
+  else if (tw === '24h') d.setHours(d.getHours() - 24);
   return d;
 }
 
