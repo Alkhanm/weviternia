@@ -17,6 +17,7 @@ RUNTIME_SERVER_DIR="$INSTALL_DIR/server"
 
 SERVICE_NAME="traffic-monitor.service"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
+LOGROTATE_FILE="/etc/logrotate.d/traffic-monitor"
 
 NODE_BIN="$(command -v node || true)"
 
@@ -34,10 +35,12 @@ RUNTIME_OWNER="${SUDO_USER:-$USER}"
 
 echo "[install] Dono dos arquivos em $INSTALL_DIR será: $RUNTIME_OWNER"
 
-### 1. LIMPAR INSTALAÇÕES ANTIGAS #########
+### 1. LIMPAR INSTALAÇÕES ANTIGAS (SEM APAGAR LOGS) #########
 
 echo "[install] Limpando instalação antiga em $INSTALL_DIR (mantendo logs e config)..."
 
+# Não apagamos INSTALL_DIR inteiro, nem LOG_DIR nem CONFIG_DIR.
+# Só limpamos binários, frontend e backend antigos.
 if [[ -d "$BIN_DIR" ]]; then
   rm -rf "$BIN_DIR"
 fi
@@ -51,7 +54,6 @@ if [[ -d "$RUNTIME_SERVER_DIR" ]]; then
 fi
 
 echo "[install] Removendo symlink antigo de /etc/traffic-monitor (se existir)..."
-# /etc/traffic-monitor é só o symlink, o conteúdo real fica em $CONFIG_DIR
 rm -rf /etc/traffic-monitor || true
 
 echo "[install] Removendo links antigos em /usr/local/bin (se existirem)..."
@@ -70,7 +72,7 @@ cd "$APP_DIR"
 npm install
 npm run build
 
-### 3. BUILD DO BACKEND #################
+### 3. BUILD DO BACKEND (server TypeScript) #################
 
 echo "[install] Build do backend (server TypeScript)..."
 cd "$SERVER_DIR"
@@ -153,12 +155,33 @@ systemctl daemon-reload
 echo "[install] Habilitando service para iniciar com o sistema..."
 systemctl enable "$SERVICE_NAME"
 
+### 11. CONFIGURAR LOGROTATE ###############################
+
+echo "[install] Criando/atualizando config do logrotate em $LOGROTATE_FILE..."
+
+cat > "$LOGROTATE_FILE" <<'EOF'
+/var/log/traffic-domains/traffic-domains.log \
+/var/log/traffic-domains/traffic-bytes.json {
+    daily
+    rotate 30
+    missingok
+    notifempty
+    dateext
+    dateformat -%Y%m%d
+    sharedscripts
+    postrotate
+        systemctl restart traffic-monitor.service >/dev/null 2>&1 || true
+    endscript
+}
+EOF
+
 echo
 echo "[install] Instalação concluída."
 echo "Para iniciar agora, rode:"
 echo "  sudo systemctl start $SERVICE_NAME"
 echo
-echo "Frontend estático em:  $WEB_DIR"
-echo "Backend Node (server.js): $RUNTIME_SERVER_DIR/server.js"
-echo "Logs em: $LOG_DIR"
-echo "Config em: $CONFIG_DIR"
+echo "Frontend estático em:        $WEB_DIR"
+echo "Backend Node (server.js):    $RUNTIME_SERVER_DIR/server.js"
+echo "Logs (preservados) em:       $LOG_DIR"
+echo "Config em:                   $CONFIG_DIR"
+echo "Logrotate em:                $LOGROTATE_FILE"

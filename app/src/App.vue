@@ -42,7 +42,7 @@
           </select>
         </label>
 
-        <label>
+        <label style="flex: 1;">
           Filtro texto
           <input type="text" v-model="filterText" placeholder="domínio, IP, fonte..." />
         </label>
@@ -72,7 +72,7 @@
 
       <section class="summary-section">
         <div class="summary-header">
-          <h2>Resumo (sessão atual)</h2>
+          <h2>Resumo </h2>
           <span v-if="bytesData.updated_at" class="summary-meta">
             Atualizado em {{ bytesData.updated_at }}
           </span>
@@ -231,7 +231,7 @@ const groupMode = ref<boolean>(true);
 const ONLINE_THRESHOLD_SECONDS = 120;
 
 const ignoredDomains = ref<string[]>([]);
-const showIgnoredBox = ref<boolean>(true);
+const showIgnoredBox = ref<boolean>(false);
 
 // --------------------------
 // helpers básicos
