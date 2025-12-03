@@ -54,14 +54,9 @@
 
         <button @click="reloadAll">Atualizar agora</button>
 
-        <label class="toggle-group">
-          <input type="checkbox" v-model="groupMode" />
-          Agrupar por domínio
-        </label>
-
         <button v-if="ignoredDomains.length" class="chip-toggle-btn" @click="toggleIgnoredBox">
-          {{ showIgnoredBox ? 'Ocultar domínios ignorados' : 'Mostrar domínios ignorados' }}
-          ({{ ignoredDomains.length }})
+          {{ showIgnoredBox ? 'Ocultar domínios ignorados' : `Mostrar domínios ignorados (${ignoredDomains.length})`
+          }}
         </button>
       </section>
 
@@ -113,6 +108,10 @@
       <section class="table-section">
         <div class="table-header">
           <h2>Eventos recentes</h2>
+          <label class="toggle-group">
+            <input type="checkbox" v-model="groupMode" />
+            Agrupar por domínio
+          </label>
         </div>
         <div class="table-wrapper">
           <table class="log-table">
@@ -391,7 +390,7 @@ const summaryRows = computed<SummaryRow[]>(() => {
     });
   }
 
-  return rows;
+  return rows.sort((r1, r2) => r2.mb_total - r1.mb_total)
 });
 
 // --------------------------
