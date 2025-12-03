@@ -136,7 +136,7 @@
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
                 </th>
-                <th class="text">
+                <th class="domain">
                   Dominio
                 </th>
                 <th v-if="groupMode" class="count" @click="changeSort('count')">
@@ -173,7 +173,7 @@
                     ipinfo
                   </button>
                 </td>
-                <td class="text">
+                <td class="domain">
                   <span>{{ entry.domain || '-' }}</span>
                   <button v-if="entry.domain" class="ignore-btn" @click.stop="ignoreDomain(entry.domain)"
                     title="Ignorar futuras entradas deste domínio">

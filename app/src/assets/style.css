@@ -1,61 +1,106 @@
+/* Reset básico */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
+/* ---------------------------------------
+ * Layout geral
+ * ------------------------------------- */
+
 body {
   margin: 0;
   padding: 0;
-  background: #020617;
+  background: radial-gradient(circle at 0 0, #0f172a 0, #020617 40%, #000 100%);
   color: #e5e7eb;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+#app {
+  min-height: 100vh;
+}
+
+/* Container centralizado */
+main {
+  padding: 16px 16px 24px 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------
+ * Header
+ * ------------------------------------- */
+
 header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  background: #020617;
+  background: rgba(2, 6, 23, 0.9);
   border-bottom: 1px solid #111827;
+  backdrop-filter: blur(14px);
 }
 
 .title-block {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 header h1 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
 }
 
 .tag {
   font-size: 11px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid #4b5563;
   color: #9ca3af;
+  background: rgba(15, 23, 42, 0.9);
 }
 
 .status {
   font-size: 11px;
   color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-main {
-  padding: 10px 16px 16px 16px;
+.status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
 }
+
+/* ---------------------------------------
+ * Controles
+ * ------------------------------------- */
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 12px;
   align-items: flex-end;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #111827;
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 55%),
+    radial-gradient(circle at top right, rgba(129, 140, 248, 0.08), transparent 55%),
+    rgba(15, 23, 42, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
 }
 
 .controls label {
@@ -63,176 +108,83 @@ main {
   flex-direction: column;
   font-size: 11px;
   color: #9ca3af;
+  min-width: 140px;
 }
 
 .controls select,
 .controls input {
-  margin-top: 2px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  margin-top: 3px;
+  padding: 5px 8px;
+  border-radius: 8px;
   border: 1px solid #4b5563;
   background: #020617;
   color: #e5e7eb;
   font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.controls select:focus,
+.controls input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.6);
+  background: #020617;
 }
 
 .controls button {
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: #020617;
+  border: 1px solid #3b82f6;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
   color: #e5e7eb;
   font-size: 12px;
   cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, filter 0.1s ease;
 }
 
 .controls button:hover {
-  background: #111827;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.45);
+  filter: brightness(1.03);
+}
+
+.controls button:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .chip-toggle-btn {
   font-size: 11px;
-  white-space: nowrap;
+  border-color: #4b5563;
+  background: #020617;
 }
 
 .toggle-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 11px;
   color: #9ca3af;
 }
 
-.summary-section {
-  background: #020617;
-  border-radius: 8px;
-  border: 1px solid #111827;
-  padding: 8px 10px;
-  margin-bottom: 10px;
+.toggle-group input[type="checkbox"] {
+  accent-color: #3b82f6;
 }
 
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.summary-header h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.summary-meta {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-.summary-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.summary-table th,
-.summary-table td {
-  border: 1px solid #1f2933;
-  padding: 4px 6px;
-  text-align: left;
-}
-
-.summary-table th {
-  background: #020617;
-  font-weight: 500;
-  color: #9ca3af;
-}
-
-.status-pill {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 999px;
-  font-size: 11px;
-}
-
-.status-pill.online {
-  background: #22c55e22;
-  color: #22c55e;
-}
-
-.status-pill.offline {
-  background: #6b728022;
-  color: #9ca3af;
-}
-
-.table-section {
-  background: #020617;
-  border-radius: 8px;
-  border: 1px solid #111827;
-  padding: 8px 10px 10px 10px;
-}
-
-.table-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.table-header h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-table.log-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.log-table th,
-.log-table td {
-  border: 1px solid #1f2933;
-  padding: 4px 6px;
-  text-align: left;
-}
-
-.log-table th {
-  background: #020617;
-  font-weight: 500;
-  color: #9ca3af;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.log-table td {
-  background: #020617;
-}
-
-.sort-indicator {
-  margin-left: 2px;
-  font-size: 10px;
-  color: #9ca3af;
-}
-
-.ts-date {
-  margin-right: .3em;
-}
-
-.ts-date,
-.ts-time {
-  white-space: nowrap;
-}
+/* ---------------------------------------
+ * Caixa de domínios ignorados
+ * ------------------------------------- */
 
 .ignored-box {
-  margin: 6px 10px 10px 10px;
+  margin: 10px 2px 14px 2px;
   font-size: 12px;
   color: #9ca3af;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px dashed #374151;
+  background: rgba(15, 23, 42, 0.85);
 }
 
 .ignored-chip {
@@ -240,11 +192,11 @@ table.log-table {
   align-items: center;
   gap: 4px;
   margin-left: 6px;
-  margin-top: 4px;
-  padding: 2px 6px;
+  margin-top: 6px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: #111827;
-  border: 1px solid #374151;
+  background: rgba(31, 41, 55, 0.95);
+  border: 1px solid #4b5563;
 }
 
 .chip-label {
@@ -264,46 +216,251 @@ table.log-table {
   color: #f97373;
 }
 
+/* ---------------------------------------
+ * Seção de resumo
+ * ------------------------------------- */
+
+.summary-section {
+  background: rgba(15, 23, 42, 0.98);
+  border-radius: 12px;
+  border: 1px solid #111827;
+  padding: 10px 12px 8px 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.summary-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.summary-meta {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.summary-table th,
+.summary-table td {
+  border: 1px solid #111827;
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.summary-table th {
+  background: linear-gradient(to right, #020617, #0b1120);
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.summary-table tbody tr:nth-child(even) td {
+  background: #020617;
+}
+
+.summary-table tbody tr:nth-child(odd) td {
+  background: #020617;
+}
+
+.summary-table tbody tr:hover td {
+  background: #111827;
+}
+
+/* Pílula de status e indicador de online/offline */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.status-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.status-pill.online {
+  background: #22c55e1f;
+  color: #bbf7d0;
+}
+
+.status-pill.online::before {
+  background: #22c55e;
+}
+
+.status-pill.offline {
+  background: #6b72801f;
+  color: #9ca3af;
+}
+
+.status-pill.offline::before {
+  background: #6b7280;
+}
+
+/* ---------------------------------------
+ * Tabela de eventos
+ * ------------------------------------- */
+
+.table-section {
+  background: rgba(15, 23, 42, 0.98);
+  border-radius: 12px;
+  border: 1px solid #111827;
+  padding: 10px 12px 12px 12px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.7);
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.table-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* tabela */
+
+table.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.log-table th,
+.log-table td {
+  border: 1px solid #111827;
+  padding: 5px 7px;
+  text-align: left;
+}
+
+.log-table th {
+  background: linear-gradient(to right, #020617, #020617);
+  font-weight: 500;
+  color: #9ca3af;
+  cursor: pointer;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.log-table td {
+  background: #020617;
+}
+
+.log-table tbody tr:nth-child(even) td {
+  background: #020617;
+}
+
+.log-table tbody tr:nth-child(odd) td {
+  background: #020617;
+}
+
+.log-table tbody tr:hover td {
+  background: #111827;
+}
+
+/* Indicador de ordenação */
+
+.sort-indicator {
+  margin-left: 3px;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* colunas de timestamp */
+
+.ts-date {
+  margin-right: 0.25em;
+}
+
+.ts-date,
+.ts-time {
+  white-space: nowrap;
+}
+
+/* textos grandes / detalhes */
+
 td.text {
   white-space: normal;
   word-break: break-word;
-  max-width: 480px;
+  max-width: 400px;
 }
 
-.ignore-btn {
-  margin-left: 8px;
-  margin-top: 2px;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid #4b5563;
-  background: #020617;
-  color: #9ca3af;
-  cursor: pointer;
+td.domain {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 300px;
 }
 
-.ignore-btn:hover {
-  background: #111827;
-  color: #e5e7eb;
-}
+/* botões dentro da tabela */
 
+.ignore-btn,
 .ipinfo-btn {
   margin-left: 6px;
+  margin-top: 2px;
   font-size: 10px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid #4b5563;
   background: #020617;
   color: #9ca3af;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
 }
 
+.ignore-btn:hover,
 .ipinfo-btn:hover {
   background: #111827;
   color: #e5e7eb;
+  transform: translateY(-0.5px);
 }
 
-/* ---------- MOBILE ---------- */
+/* links de IP remoto */
+
+.log-table a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.log-table a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------
+ * Responsividade
+ * ------------------------------------- */
 
 @media (max-width: 768px) {
   body {
@@ -313,28 +470,26 @@ td.text {
   header {
     flex-wrap: wrap;
     align-items: flex-start;
-    padding: 8px 10px;
+    padding: 8px 12px;
     gap: 6px;
   }
 
   header h1 {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   main {
-    padding: 8px 10px 14px 10px;
+    padding: 10px 10px 18px 10px;
   }
 
   .controls {
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 8px;
   }
 
   .controls label {
     width: 100%;
-    display: flex;
-    flex-direction: column;
     font-size: 12px;
   }
 
@@ -388,7 +543,7 @@ td.text {
 
 @media (max-width: 480px) {
   header h1 {
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .ipinfo-btn {
@@ -399,14 +554,15 @@ td.text {
     max-width: 260px;
   }
 
-
+  /* Resumo: esconde MB in/out, mostra só total + status */
   .summary-table thead th:nth-child(3),
   .summary-table tbody td:nth-child(3),
   .summary-table thead th:nth-child(4),
-  .summary-table tbody td:nth-child(4){
+  .summary-table tbody td:nth-child(4) {
     display: none;
   }
 
+  /* Logs: deixa só horário, cliente e domínio */
   .log-table thead th:nth-child(3),
   .log-table tbody td:nth-child(3),
   .log-table thead th:nth-child(5),
@@ -417,5 +573,4 @@ td.text {
   .log-table tbody td:nth-child(7) {
     display: none;
   }
-
 }
