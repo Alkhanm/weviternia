@@ -34,14 +34,25 @@ RUNTIME_OWNER="${SUDO_USER:-$USER}"
 
 echo "[install] Dono dos arquivos em $INSTALL_DIR será: $RUNTIME_OWNER"
 
-### 1. LIMPAR INSTALAÇÕES ANTIGAS ###########################
+### 1. LIMPAR INSTALAÇÕES ANTIGAS #########
 
-echo "[install] Removendo instalação antiga em $INSTALL_DIR (se existir)..."
-rm -rf "$INSTALL_DIR"
+echo "[install] Limpando instalação antiga em $INSTALL_DIR (mantendo logs e config)..."
 
-echo "[install] Removendo symlinks antigos (se existirem)..."
-rm -rf /var/log/traffic-domains || true
-rm -rf /etc/traffic-monitor      || true
+if [[ -d "$BIN_DIR" ]]; then
+  rm -rf "$BIN_DIR"
+fi
+
+if [[ -d "$WEB_DIR" ]]; then
+  rm -rf "$WEB_DIR"
+fi
+
+if [[ -d "$RUNTIME_SERVER_DIR" ]]; then
+  rm -rf "$RUNTIME_SERVER_DIR"
+fi
+
+echo "[install] Removendo symlink antigo de /etc/traffic-monitor (se existir)..."
+# /etc/traffic-monitor é só o symlink, o conteúdo real fica em $CONFIG_DIR
+rm -rf /etc/traffic-monitor || true
 
 echo "[install] Removendo links antigos em /usr/local/bin (se existirem)..."
 rm -f /usr/local/bin/traffic-analyzer  || true
@@ -59,7 +70,7 @@ cd "$APP_DIR"
 npm install
 npm run build
 
-### 3. BUILD DO BACKEND (server/traffic-api.ts) #############
+### 3. BUILD DO BACKEND #################
 
 echo "[install] Build do backend (server TypeScript)..."
 cd "$SERVER_DIR"
@@ -71,20 +82,18 @@ npm run build
 echo "[install] Criando diretórios em $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$BIN_DIR"
-mkdir -p "$LOG_DIR"
-mkdir -p "$CONFIG_DIR"
+mkdir -p "$LOG_DIR"        # se já existir, mantém logs
+mkdir -p "$CONFIG_DIR"     # mantém config existente
 mkdir -p "$WEB_DIR"
 mkdir -p "$RUNTIME_SERVER_DIR"
 
 ### 5. COPIAR ARQUIVOS DO FRONTEND BUILDADO #################
 
-# Vite gera dist/ dentro de app/
 echo "[install] Copiando frontend (dist) para $WEB_DIR..."
 cp -r "$APP_DIR/dist/." "$WEB_DIR/"
 
 ### 6. COPIAR BACKEND COMPILADO #############################
 
-# Pelo print que você mandou: server/dist/src/server.js
 echo "[install] Copiando backend compilado para $RUNTIME_SERVER_DIR..."
 cp "$SERVER_DIR/dist/src/server.js" "$RUNTIME_SERVER_DIR/server.js"
 
@@ -115,9 +124,6 @@ ln -sfn "$BIN_DIR/monitor.sh"  /usr/local/bin/traffic-monitor
 echo "[install] Ajustando dono dos arquivos em $INSTALL_DIR para $RUNTIME_OWNER..."
 chown -R "$RUNTIME_OWNER":"$RUNTIME_OWNER" "$INSTALL_DIR"
 
-# Os symlinks /var/log/traffic-domains e /etc/traffic-monitor apontam pra lá,
-# então as permissões ficam coerentes.
-
 ### 10. CRIAR SYSTEMD SERVICE ###############################
 
 echo "[install] Criando service $SERVICE_NAME..."
@@ -133,10 +139,7 @@ WorkingDirectory=$INSTALL_DIR
 ExecStart=$BIN_DIR/monitor.sh
 Restart=always
 RestartSec=5
-# o serviço precisa rodar como root para usar tcpdump
 User=root
-
-# logs no journal
 StandardOutput=journal
 StandardError=journal
 
@@ -157,5 +160,5 @@ echo "  sudo systemctl start $SERVICE_NAME"
 echo
 echo "Frontend estático em:  $WEB_DIR"
 echo "Backend Node (server.js): $RUNTIME_SERVER_DIR/server.js"
-echo "Logs em:               $LOG_DIR"
-echo "Config em:             $CONFIG_DIR"
+echo "Logs em: $LOG_DIR"
+echo "Config em: $CONFIG_DIR"
