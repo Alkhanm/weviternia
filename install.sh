@@ -69,15 +69,15 @@ systemctl daemon-reload || true
 
 echo "[install] Build do frontend (Vue + Vite)..."
 cd "$APP_DIR"
-npm install
-npm run build
+sudo -u "$RUNTIME_OWNER" npm install
+sudo -u "$RUNTIME_OWNER" npm run build
 
 ### 3. BUILD DO BACKEND (server TypeScript) #################
 
 echo "[install] Build do backend (server TypeScript)..."
 cd "$SERVER_DIR"
-npm install
-npm run build
+sudo -u "$RUNTIME_OWNER" npm install
+sudo -u "$RUNTIME_OWNER" npm run build
 
 ### 4. CRIAR ESTRUTURA EM /opt/traffic-monitor ##############
 
@@ -168,10 +168,6 @@ cat > "$LOGROTATE_FILE" <<'EOF'
     notifempty
     dateext
     dateformat -%Y%m%d
-    sharedscripts
-    postrotate
-        systemctl restart traffic-monitor.service >/dev/null 2>&1 || true
-    endscript
 }
 EOF
 
