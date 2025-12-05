@@ -34,6 +34,8 @@ BEGIN {
 # 1732831324.123456 IP 192.168.3.17.54778 > 157.240.12.174.443: tcp 1448
 
 /^([0-9]+\.[0-9]+) IP / {
+  now = systime();
+
   src = $3;  # 192.168.3.17.54778
   dst = $5;  # 157.240.12.174.443:
 
@@ -58,42 +60,62 @@ BEGIN {
   is_src_client = (src ~ lanre);
   is_dst_client = (dst ~ lanre);
 
-  # cliente -> internet
+  # cliente -> internet (upload / ACK / etc.)
   if (is_src_client) {
     bytes_out[src]   += size;
     bytes_total[src] += size;
+
+    # Última vez que esse cliente apareceu em qualquer direção
+    last_seen_any[src] = now;
+    # Última vez que o cliente ENVIOU algo (critério de "online")
+    last_seen_out[src] = now;
   }
 
-  # internet -> cliente
+  # internet -> cliente (download)
   if (is_dst_client) {
     bytes_in[dst]    += size;
     bytes_total[dst] += size;
+
+    # Aqui só atualiza o "any", não o "out"
+    last_seen_any[dst] = now;
   }
 
-  now = systime();
+  # flush periódico
   if (now - last_flush >= flush_interval) {
     dump_json(outfile);
     last_flush = now;
   }
 }
 
-function dump_json(file,    first, c, mb_in, mb_out, mb_total, ts) {
+function dump_json(file,    first, c, mb_in, mb_out, mb_total, ts, last_any_str, last_out_str) {
   ts = strftime("%Y-%m-%d %H:%M:%S");
   printf("{\"updated_at\":\"%s\",\"clients\":{", ts) > file;
   first = 1;
   for (c in bytes_total) {
     if (!first) printf(",") > file;
     first = 0;
+
     mb_in    = bytes_in[c]   / 1048576.0;
     mb_out   = bytes_out[c]  / 1048576.0;
     mb_total = bytes_total[c]/ 1048576.0;
+
     printf("\"%s\":{", c) > file;
-    printf("\"bytes_in\":%d,",   bytes_in[c]) > file;
-    printf("\"bytes_out\":%d,",  bytes_out[c]) > file;
-    printf("\"bytes_total\":%d,",bytes_total[c]) > file;
-    printf("\"mb_in\":%.3f,",    mb_in) > file;
-    printf("\"mb_out\":%.3f,",   mb_out) > file;
-    printf("\"mb_total\":%.3f",  mb_total) > file;
+    printf("\"bytes_in\":%d,",    bytes_in[c])    > file;
+    printf("\"bytes_out\":%d,",   bytes_out[c])   > file;
+    printf("\"bytes_total\":%d,", bytes_total[c]) > file;
+    printf("\"mb_in\":%.3f,",     mb_in)          > file;
+    printf("\"mb_out\":%.3f,",    mb_out)         > file;
+    printf("\"mb_total\":%.3f",   mb_total)       > file;
+
+    if (c in last_seen_any) {
+      last_any_str = strftime("%Y-%m-%d %H:%M:%S", last_seen_any[c]);
+      printf(",\"last_seen_any\":\"%s\"", last_any_str) > file;
+    }
+    if (c in last_seen_out) {
+      last_out_str = strftime("%Y-%m-%d %H:%M:%S", last_seen_out[c]);
+      printf(",\"last_seen_out\":\"%s\"", last_out_str) > file;
+    }
+
     printf("}") > file;
   }
   printf("}}\n") > file;
@@ -104,4 +126,3 @@ END {
   dump_json(outfile);
 }
 '
-

@@ -110,7 +110,7 @@
               <td>{{ row.mb_in.toFixed(3) }}</td>
               <td>{{ row.mb_out.toFixed(3) }}</td>
               <td>{{ row.mb_total.toFixed(3) }}</td>
-              <td>{{ formatTimePart(row.lastSeen) || '-' }}</td>
+              <td>{{ formatTimePart(row.last_seen) || '-' }}</td>
             </tr>
           </tbody>
         </table>
@@ -216,7 +216,6 @@ import type {
   LogEntryRaw,
   LogEntryDisplay,
   BytesData,
-  LastSeenEntry,
   SummaryRow
 } from './types';
 
@@ -239,7 +238,7 @@ const sortKey = ref<SortKey>('timestamp');
 const sortDir = ref<'asc' | 'desc'>('desc');
 const groupMode = ref<boolean>(true);
 
-const ONLINE_THRESHOLD_SECONDS = 120;
+const ONLINE_THRESHOLD_SECONDS = 30;
 
 const ignoredDomains = ref<string[]>([]);
 const showIgnoredBox = ref<boolean>(false);
@@ -274,17 +273,6 @@ function parseTimestampToDate(ts: string | null): Date | null {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
   return d;
-}
-
-function formatTimestamp(d: Date): string {
-  const pad = (n: number) => (n < 10 ? '0' + n : '' + n);
-  const y = d.getFullYear();
-  const m = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const h = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  const s = pad(d.getSeconds());
-  return `${y}-${m}-${day} ${h}:${mi}:${s}`;
 }
 
 function getTimeWindowMinDate(): Date | null {
@@ -425,43 +413,22 @@ const filteredLogs = computed<LogEntryRaw[]>(() => {
 
   return logs;
 });
-
-// --------------------------
-// derivado: lastSeen por cliente
-// --------------------------
-const lastSeenByClient = computed<Record<string, LastSeenEntry>>(() => {
-  const map: Record<string, LastSeenEntry> = {};
-  for (const e of filteredLogs.value) {
-    if (!e.client || !e.timestamp) continue;
-    const d = parseTimestampToDate(e.timestamp);
-    if (!d) continue;
-    const existing = map[e.client];
-    if (!existing || d > existing.ts) {
-      map[e.client] = { ts: d, raw: e.raw };
-    }
-  }
-  return map;
-});
-
 // --------------------------
 // derivado: summaryRows (tabela de bytes)
 // --------------------------
 const summaryRows = computed<SummaryRow[]>(() => {
   const rows: SummaryRow[] = [];
   const bytes = bytesData.value.clients || {};
-  const lastSeenMap = lastSeenByClient.value;
   const now = Date.now();
 
   for (const ip of Object.keys(bytes).sort()) {
     const info = bytes[ip];
-    const last = lastSeenMap[ip];
     let online = false;
-    let lastSeenStr: string | null = null;
+    let lastSeenStr: string | undefined = info?.last_seen_out;
 
-    if (last && last.ts) {
-      const diffSec = (now - last.ts.getTime()) / 1000;
+    if (lastSeenStr) {
+      const diffSec = (now - new Date(lastSeenStr).getTime()) / 1000;
       online = diffSec <= ONLINE_THRESHOLD_SECONDS;
-      lastSeenStr = formatTimestamp(last.ts);
     }
 
     rows.push({
@@ -470,7 +437,7 @@ const summaryRows = computed<SummaryRow[]>(() => {
       mb_out: info?.mb_out || 0,
       mb_total: info?.mb_total || 0,
       online,
-      lastSeen: lastSeenStr
+      last_seen: info?.last_seen_out || info?.last_seen_any || null
     });
   }
 

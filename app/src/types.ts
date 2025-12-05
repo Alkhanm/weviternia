@@ -25,6 +25,8 @@ export interface BytesClientEntry {
   mb_in: number;
   mb_out: number;
   mb_total: number;
+  last_seen_any: string
+  last_seen_out: string
 }
 
 export interface BytesData {
@@ -32,10 +34,6 @@ export interface BytesData {
   clients: Record<string, BytesClientEntry>;
 }
 
-export interface LastSeenEntry {
-  ts: Date;
-  raw: string;
-}
 
 export interface SummaryRow {
   ip: string;
@@ -43,7 +41,7 @@ export interface SummaryRow {
   mb_out: number;
   mb_total: number;
   online: boolean;
-  lastSeen: string | null;
+  last_seen: string | null;
 }
 
 
