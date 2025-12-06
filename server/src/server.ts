@@ -182,7 +182,6 @@ function handleLogDays(_req: http.IncomingMessage, res: http.ServerResponse) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dayStr = formatDate(d);
-    console.log(dayStr)
     const resolved = resolveLogPathForDate(dayStr);
     if (resolved.exists) {
       days.push(dayStr);
