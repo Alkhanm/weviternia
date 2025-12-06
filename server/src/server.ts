@@ -48,9 +48,7 @@ function resolveLogPathForDate(dateStr?: string | null): { file: string; exists:
     return { file: LOG_FILE, exists };
   }
 
-  const ymd = dateStr.replace(/[^0-9]/g, ''); // 2025-12-03 → 20251203
-
-  const candidate = `${LOG_FILE}-${ymd}`;      // ex: traffic-domains.log-20251202
+  const candidate = `${LOG_FILE}-${dateStr}`;      // ex: traffic-domains.log-2025-12-02
   if (fs.existsSync(candidate)) {
     return { file: candidate,  exists: true };
   }
@@ -184,6 +182,7 @@ function handleLogDays(_req: http.IncomingMessage, res: http.ServerResponse) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dayStr = formatDate(d);
+    console.log(dayStr)
     const resolved = resolveLogPathForDate(dayStr);
     if (resolved.exists) {
       days.push(dayStr);
@@ -309,16 +308,6 @@ function parseLogLine(line: string): ParsedLogEntry | null {
 // /logs
 // ------------------------
 
-function getQueryStringParam(
-  query: ParsedUrlQuery,
-  key: string,
-  defaultValue = ''
-): string {
-  const v = query[key];
-  if (typeof v === 'string') return v;
-  if (Array.isArray(v) && v.length > 0) return v[0];
-  return defaultValue;
-}
 
 function handleLogs(_req: http.IncomingMessage, res: http.ServerResponse, query: any) {
   const clientFilter = (query.client || '').trim();

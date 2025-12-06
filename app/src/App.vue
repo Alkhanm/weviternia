@@ -25,7 +25,7 @@
 
         <label>
           Limite eventos
-          <input type="number" min="10" max="10000" v-model.number="limit" @change="reloadLogs" />
+          <input type="number" min="10" v-model.number="limit" @change="reloadLogs" />
         </label>
 
         <label>
@@ -280,7 +280,8 @@ function getTimeWindowMinDate(): Date | null {
   const tw = timeWindow.value;
   if (tw === 'all') return null;
   const d = new Date(now);
-  if (tw === '1h') d.setHours(d.getHours() - 1);
+  if (tw === '30m') d.setHours(d.getHours() - 0.5);
+  else if (tw === '1h') d.setHours(d.getHours() - 1);
   else if (tw === '2h') d.setHours(d.getHours() - 2);
   else if (tw === '4h') d.setHours(d.getHours() - 4);
   else if (tw === '8h') d.setHours(d.getHours() - 8);
@@ -553,7 +554,7 @@ async function loadLogs() {
     const data = await fetchJSON<{ entries: any[] }>('/logs?' + params.toString());
     logsRaw.value = data.entries || [];
 
-    status.value = `Carregado: ${logsRaw.value.length} eventos`;
+    status.value = `Carregado: ${logsRaw.value.length} eventos / filtrado ${filteredLogs.value.length}`;
   } catch (e) {
     console.error('Erro ao carregar /logs', e);
     logsRaw.value = [];

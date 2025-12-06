@@ -1,7 +1,8 @@
 {
   "scripts": {
     "build": "npx tsc -p tsconfig.server.json",
-    "dev": "npm run build && node ./dist/src/server.js"
+    "dev": "npm run build && node ./dist/src/server.js",
+    "start": "npx ts-node ./src/server.ts"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
