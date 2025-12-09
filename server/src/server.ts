@@ -4,7 +4,7 @@ import path from 'path';
 import { parse as parseUrl } from 'url';
 import type { ParsedUrlQuery } from 'querystring';
 
-const HOST = '0.0.0.0';
+const HOST = '100.76.63.123';
 const PORT = Number(process.env.PORT ?? 9080);
 
 // diretório de instalação: /opt/traffic-monitor

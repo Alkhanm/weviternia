@@ -91,7 +91,6 @@
         <table class="summary-table">
           <thead>
             <tr>
-              <th>Último acesso</th>
               <th>Cliente</th>
               <th>MB Recebido</th>
               <th>MB Enviado</th>
@@ -100,13 +99,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in summaryRows" :key="row.ip">
+            <tr v-for="row in summaryRows" :key="row.ip" >
               <td>
                 <span :class="['status-pill', row.online ? 'online' : 'offline']">
-                  {{ row.online ? 'Online' : 'Offline' }}
+                  {{ row.ip }}
                 </span>
               </td>
-              <td>{{ row.ip }}</td>
               <td>{{ row.mb_in.toFixed(3) }}</td>
               <td>{{ row.mb_out.toFixed(3) }}</td>
               <td>{{ row.mb_total.toFixed(3) }}</td>

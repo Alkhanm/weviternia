@@ -600,11 +600,9 @@ td.domain {
   }
 
   /* Resumo: esconde MB in/out, mostra só total + status */
-  .summary-table thead th:nth-child(3),
-  .summary-table tbody td:nth-child(3),
   .summary-table thead th:nth-child(4),
   .summary-table tbody td:nth-child(4) {
-    display: none;
+   display: none;
   }
 
   /* Logs: deixa só horário, cliente e domínio */
