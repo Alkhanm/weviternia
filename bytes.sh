@@ -4,7 +4,7 @@
 IFACE="enx00e04c68054d"
 
 # Regex para identificar clientes LAN (ajuste se precisar)
-LAN_REGEX="^192\\.168\\.3\\."
+LAN_REGEX="^192\\.168\\.1\\."
 
 # Arquivo de saída com os contadores
 OUTFILE="/var/log/traffic-domains/traffic-bytes.json"
@@ -31,12 +31,12 @@ BEGIN {
 }
 
 # Exemplo:
-# 1732831324.123456 IP 192.168.3.17.54778 > 157.240.12.174.443: tcp 1448
+# 1732831324.123456 IP 192.168.1.17.54778 > 157.240.12.174.443: tcp 1448
 
 /^([0-9]+\.[0-9]+) IP / {
   now = systime();
 
-  src = $3;  # 192.168.3.17.54778
+  src = $3;  # 192.168.1.17.54778
   dst = $5;  # 157.240.12.174.443:
 
   # Remove ":" do final e a porta

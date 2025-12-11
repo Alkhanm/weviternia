@@ -4,7 +4,7 @@
 IFACE="enx00e04c68054d"
 
 # Faixa dos clientes internos (ajuste se mudar sua LAN)
-LAN_REGEX="^192\.168\.3\."
+LAN_REGEX="^192\.168\.1\."
 
 LOG_DIR="/var/log/traffic-domains"
 LOG_FILE="$LOG_DIR/traffic-domains.log"
