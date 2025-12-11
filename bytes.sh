@@ -12,12 +12,16 @@ OUTFILE="/var/log/traffic-domains/traffic-bytes.json"
 # Intervalo (segundos) para gravar o JSON
 FLUSH_INTERVAL=5
 
+# Arquivo de clientes a ignorar (um regex por linha)
+IGNORE_CLIENTS_FILE="${IGNORE_CLIENTS_FILE:-/etc/traffic-monitor/ignore-clients.txt}"
+
 # Garante que o diretório existe
 mkdir -p "$(dirname "$OUTFILE")"
 
 echo "[traffic-bytes] Escutando na interface: $IFACE"
 echo "[traffic-bytes] Clientes LAN: $LAN_REGEX"
 echo "[traffic-bytes] Saída JSON: $OUTFILE (flush a cada ${FLUSH_INTERVAL}s)"
+echo "[traffic-bytes] Arquivo de ignore de clientes: $IGNORE_CLIENTS_FILE"
 
 # -n   : sem resolver nome
 # -tt  : timestamp epoch
@@ -25,9 +29,44 @@ echo "[traffic-bytes] Saída JSON: $OUTFILE (flush a cada ${FLUSH_INTERVAL}s)"
 # -l   : line-buffered
 # ip   : só tráfego IP
 exec tcpdump -i "$IFACE" -n -tt -q -l ip 2>/dev/null | \
-awk -v lanre="$LAN_REGEX" -v outfile="$OUTFILE" -v flush_interval="$FLUSH_INTERVAL" '
+awk -v lanre="$LAN_REGEX" -v outfile="$OUTFILE" -v flush_interval="$FLUSH_INTERVAL" -v ignore_clients_file="$IGNORE_CLIENTS_FILE" '
 BEGIN {
   last_flush = systime();
+  n_ignore_clients = 0;
+  delete ignore_clients;
+  
+  if (ignore_clients_file != "") {
+    load_ignore_clients(ignore_clients_file);
+    last_ignore_reload = systime();
+  }
+}
+
+function load_ignore_clients(file,   line) {
+  n_ignore_clients = 0;
+  delete ignore_clients;
+  
+  if (file == "") return;
+  
+  while ((getline line < file) > 0) {
+    # remove comentários
+    sub(/#.*/, "", line);
+    # trim
+    gsub(/^ +| +$/, "", line);
+    if (line == "") continue;
+    
+    n_ignore_clients++;
+    ignore_clients[n_ignore_clients] = line;
+  }
+  close(file);
+}
+
+function should_ignore_client(ip,   i) {
+  for (i = 1; i <= n_ignore_clients; i++) {
+    if (ip ~ ignore_clients[i]) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 # Exemplo:
@@ -35,6 +74,14 @@ BEGIN {
 
 /^([0-9]+\.[0-9]+) IP / {
   now = systime();
+  
+  # Recarrega a lista de clientes ignorados a cada 10 segundos
+  if (ignore_clients_file != "") {
+    if (now - last_ignore_reload >= 10) {
+      load_ignore_clients(ignore_clients_file);
+      last_ignore_reload = now;
+    }
+  }
 
   src = $3;  # 192.168.1.17.54778
   dst = $5;  # 157.240.12.174.443:
@@ -59,6 +106,14 @@ BEGIN {
 
   is_src_client = (src ~ lanre);
   is_dst_client = (dst ~ lanre);
+  
+  # Ignorar clientes que estão na lista de ignorados
+  if (is_src_client && should_ignore_client(src)) {
+    next;
+  }
+  if (is_dst_client && should_ignore_client(dst)) {
+    next;
+  }
 
   # cliente -> internet (upload / ACK / etc.)
   if (is_src_client) {

@@ -12,13 +12,17 @@ LOG_FILE="$LOG_DIR/traffic-domains.log"
 # Arquivo de domínios a ignorar (um regex por linha)
 IGNORE_FILE="${IGNORE_FILE:-/etc/traffic-monitor/ignore-domains.txt}"
 
+# Arquivo de clientes a ignorar (um regex por linha)
+IGNORE_CLIENTS_FILE="${IGNORE_CLIENTS_FILE:-/etc/traffic-monitor/ignore-clients.txt}"
+
 mkdir -p "$LOG_DIR"
 
 echo "[traffic-analyzer] Escutando interface: $IFACE"
 echo "[traffic-analyzer] Clientes LAN (regex): $LAN_REGEX"
 echo "[traffic-analyzer] Log: $LOG_FILE"
 echo "[traffic-analyzer] Mode: tshark DNS/TLS/HTTP host"
-echo "[traffic-analyzer] Arquivo de ignore: $IGNORE_FILE"
+echo "[traffic-analyzer] Arquivo de ignore de domínios: $IGNORE_FILE"
+echo "[traffic-analyzer] Arquivo de ignore de clientes: $IGNORE_CLIENTS_FILE"
 
 exec tshark -i "$IFACE" -n -l \
   -T fields \
@@ -29,7 +33,7 @@ exec tshark -i "$IFACE" -n -l \
   -e tls.handshake.extensions_server_name \
   -e http.host \
   -Y "dns.qry.name or tls.handshake.extensions_server_name or http.host" 2>/dev/null | \
-awk -v lanre="$LAN_REGEX" -v logfile="$LOG_FILE" -v ignore_file="$IGNORE_FILE" '
+awk -v lanre="$LAN_REGEX" -v logfile="$LOG_FILE" -v ignore_file="$IGNORE_FILE" -v ignore_clients_file="$IGNORE_CLIENTS_FILE" '
 BEGIN {
   FS = "\t";  # tshark -T fields separa por TAB
 
@@ -39,6 +43,14 @@ BEGIN {
   if (ignore_file != "") {
     load_ignore_file(ignore_file);
     last_ignore_reload = systime();
+  }
+  
+  n_ignore_clients = 0;
+  last_ignore_clients_reload = 0;
+  
+  if (ignore_clients_file != "") {
+    load_ignore_clients(ignore_clients_file);
+    last_ignore_clients_reload = systime();
   }
 }
 
@@ -54,7 +66,6 @@ function load_ignore_file(file,   line) {
   if (file == "") return;
 
   while ((getline line < file) > 0) {
-    # tira comentário
     sub(/#.*/, "", line);
     # trim
     gsub(/^ +| +$/, "", line);
@@ -66,11 +77,39 @@ function load_ignore_file(file,   line) {
   close(file);
 }
 
+# Carrega (ou recarrega) a lista de clientes ignorados
+function load_ignore_clients(file,   line) {
+  n_ignore_clients = 0;
+  delete ignore_clients;
+
+  if (file == "") return;
+
+  while ((getline line < file) > 0) {
+    sub(/#.*/, "", line);
+    gsub(/^ +| +$/, "", line);
+    if (line == "") continue;
+
+    n_ignore_clients++;
+    ignore_clients[n_ignore_clients] = line;
+  }
+  close(file);
+}
+
 # Retorna 1 se o domínio deve ser ignorado
 function should_ignore_domain(d,   i) {
   if (d == "") return 0;
   for (i = 1; i <= n_ignore; i++) {
     if (d ~ ignore_patterns[i]) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+# Retorna 1 se o cliente (IP) deve ser ignorado
+function should_ignore_client(ip,   i) {
+  for (i = 1; i <= n_ignore_clients; i++) {
+    if (ip ~ ignore_clients[i]) {
       return 1;
     }
   }
@@ -88,12 +127,21 @@ NF >= 3 {
 
   ts_epoch_int = int(ts_epoch + 0);
 
-  # Recarrega o arquivo de ignores a cada 10 segundos (aprox)
+  # Recarrega o arquivo de ignores a cada 10 segundos
   if (ignore_file != "") {
     now = systime();
     if (now - last_ignore_reload >= 10) {
       load_ignore_file(ignore_file);
       last_ignore_reload = now;
+    }
+  }
+  
+  # Recarrega o arquivo de ignores de clientes a cada 10 segundos
+  if (ignore_clients_file != "") {
+    now = systime();
+    if (now - last_ignore_clients_reload >= 10) {
+      load_ignore_clients(ignore_clients_file);
+      last_ignore_clients_reload = now;
     }
   }
 
@@ -133,6 +181,11 @@ NF >= 3 {
     client = src;
     remote = dst;
   } else {
+    next;
+  }
+  
+  # Filtro de clientes ignorados
+  if (should_ignore_client(client)) {
     next;
   }
 

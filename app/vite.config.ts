@@ -9,23 +9,23 @@ export default defineConfig({
     proxy: {
       // tudo isso será repassado para o backend em 9090
       '/logs': {
-        target: 'http://127.0.0.1:9080',
+        target: 'http://100.76.63.123:9080',
         changeOrigin: true
       },
       '/log-days': {
-        target: 'http://127.0.0.1:9080',
+        target: 'http://100.76.63.123:9080',
         changeOrigin: true
       },
       '/bytes': {
-        target: 'http://127.0.0.1:9080',
+        target: 'http://100.76.63.123:9080',
         changeOrigin: true
       },
       '/clients': {
-        target: 'http://127.0.0.1:9080',
+        target: 'http://100.76.63.123:9080',
         changeOrigin: true
       },
       '/ignored-domains': {
-        target: 'http://127.0.0.1:9080',
+        target: 'http://100.76.63.123:9080',
         changeOrigin: true
       }
     }
