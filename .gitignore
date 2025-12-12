@@ -25,3 +25,6 @@ server/dist
 *.sln
 *.sw?
 server/dist/src/*
+traffic-bytes.json
+config/ignore-clients.txt
+config/ignore-domains.txt

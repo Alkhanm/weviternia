@@ -127,37 +127,40 @@
             <thead>
               <tr>
                 <th class="ts" @click="changeSort('timestamp')">
-                  Horário
                   <span class="sort-indicator" v-if="sortKey === 'timestamp'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
+                  Horário
                 </th>
                 <th class="client" @click="changeSort('client')">
-                  Cliente
                   <span class="sort-indicator" v-if="sortKey === 'client'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
+                  Cliente
                 </th>
                 <th class="ip" @click="changeSort('remote_ip')">
-                  IP remoto
                   <span class="sort-indicator" v-if="sortKey === 'remote_ip'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
+                  IP remoto
                 </th>
-                <th class="domain">
+                <th class="domain" @click="changeSort('domain')">
+                  <span class="sort-indicator" v-if="sortKey === 'domain'">
+                    {{ sortDir === 'asc' ? '▲' : '▼' }}
+                  </span>
                   Dominio
                 </th>
                 <th v-if="groupMode" class="count" @click="changeSort('count')">
-                  Qtd
                   <span class="sort-indicator" v-if="sortKey === 'count'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
+                  Qtd
                 </th>
                 <th class="source source-col" @click="changeSort('source')">
-                  Fonte
                   <span class="sort-indicator" v-if="sortKey === 'source'">
                     {{ sortDir === 'asc' ? '▲' : '▼' }}
                   </span>
+                  Fonte
                 </th>
                 <th class="text">
                   Detalhes
