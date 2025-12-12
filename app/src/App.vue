@@ -173,7 +173,12 @@
                   <span class="ts-date">{{ formatDatePart(entry.timestamp) }}</span>
                   <span class="ts-time">{{ formatTimePart(entry.timestamp) }}</span>
                 </td>
-                <td class="client">{{ entry.client }}</td>
+                <td class="client">
+                  <span v-if="entry.client_ip !== entry.client_name">
+                    {{ entry.client_name }} →
+                  </span>
+                  {{ entry.client_ip }} 
+                </td>
                 <td class="ip">
                   <a v-if="entry.remote_ip" :href="'http://' + entry.remote_ip" target="_blank" rel="noreferrer">
                     {{ entry.remote_ip }}
@@ -347,7 +352,7 @@ function exportCsv() {
   for (const e of rows) {
     const cells = [
       e.timestamp || '',
-      e.client || '',
+      (e.client_ip.concat(`${( e.client_name )}`)) || '',
       e.remote_ip || '',
       e.domain || '',
       e.source || '',
@@ -456,7 +461,7 @@ const displayLogs = computed<LogEntryDisplay[]>(() => {
     const grouped = new Map<string, LogEntryDisplay>();
 
     for (const e of filteredLogs.value) {
-      const key = `${e.domain || ''}||${e.client || ''}||${e.remote_ip || ''}||${e.source || ''}`;
+      const key = `${e.domain || ''}||${e.client_ip || ''}||${e.remote_ip || ''}||${e.source || ''}`;
       const existing = grouped.get(key);
       const dt = parseTimestampToDate(e.timestamp);
 

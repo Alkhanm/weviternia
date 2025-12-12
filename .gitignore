@@ -28,3 +28,4 @@ server/dist/src/*
 traffic-bytes.json
 config/ignore-clients.txt
 config/ignore-domains.txt
+config/lan-hosts.txt

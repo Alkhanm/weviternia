@@ -5,7 +5,8 @@ export type TimeWindow = 'all' | "30m" | '1h' | '2h'  | '4h'  | '8h'  | '16h'  |
 
 export interface LogEntryRaw {
   timestamp: string;
-  client: string;
+  client_ip: string;
+  client_name: string;
   host: string;
   domain: string | null;
   remote_ip: string | null;

@@ -270,7 +270,8 @@ async function handleDeleteIgnoredDomains(
 
 interface ParsedLogEntry {
   timestamp: string;
-  client: string;
+  client_ip: string;
+  client_name: string;
   host: string;
   domain: string | null;
   remote_ip: string | null;
@@ -279,22 +280,34 @@ interface ParsedLogEntry {
 }
 
 function parseLogLine(line: string): ParsedLogEntry | null {
-  // Exemplo:
-  // [+] 2025-12-01 19:29:20 | 192.168.3.11 → exemplo.com (1.2.3.4) | fonte=DNS
-  const re = /^\[\+\]\s+([^|]+)\s+\|\s+([0-9a-fA-F\.:]+)\s+→\s+(.+?)\s+\(([0-9a-fA-F\.:]+)\)(?:\s+\|\s+fonte=([A-Za-z0-9\-_]+))?/;
+  // Exemplo de entrada:
+  // [+] 2025-12-11 23:31:42 | 192.168.1.201 (Redmi-13C) → graph.facebook.com (157.240.12.13) | fonte=TLS
+  
+  // Explicação dos Grupos do Regex:
+  // 1. Timestamp: ([^|]+)
+  // 2. Client IP: ([0-9a-fA-F\.:]+)
+  // 3. Client Name (dentro dos parênteses): \(([^)]+)\)
+  // 4. Domain/Host: (.+?)
+  // 5. Remote IP (dentro dos parênteses): \(([0-9a-fA-F\.:]+)\)
+  // 6. Fonte (opcional): fonte=([A-Za-z0-9\-_]+)
+
+  const re = /^\[\+\]\s+([^|]+)\s+\|\s+([0-9a-fA-F\.:]+)\s+\(([^)]+)\)\s+→\s+(.+?)\s+\(([0-9a-fA-F\.:]+)\)(?:\s+\|\s+fonte=([A-Za-z0-9\-_]+))?/;
+  
   const m = line.match(re);
   if (!m) return null;
 
   const timestamp = m[1].trim();
-  const client = m[2].trim();
-  const host = m[3].trim();
-  const remote_ip = m[4].trim();
-  const source = (m[5] || '').trim();
-  const domain = host; // tratamos host como “domínio principal”
+  const client_ip = m[2].trim();
+  const client_name = m[3].trim(); // Agora capturamos o nome corretamente
+  const host = m[4].trim();        // Domínio acessado
+  const remote_ip = m[5].trim();
+  const source = (m[6] || '').trim();
+  const domain = host; 
 
   return {
     timestamp,
-    client,
+    client_ip,
+    client_name,
     host,
     domain,
     remote_ip,
@@ -302,7 +315,6 @@ function parseLogLine(line: string): ParsedLogEntry | null {
     raw: line
   };
 }
-
 // ------------------------
 // /logs
 // ------------------------
@@ -337,7 +349,7 @@ function handleLogs(_req: http.IncomingMessage, res: http.ServerResponse, query:
     const parsed = parseLogLine(line);
     if (!parsed) continue;
 
-    if (clientFilter && clientFilter !== 'all' && parsed.client !== clientFilter) {
+    if (clientFilter && clientFilter !== 'all' && parsed.client_ip !== clientFilter) {
       continue;
     }
 
