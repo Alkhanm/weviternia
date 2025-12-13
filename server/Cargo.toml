@@ -1,0 +1,24 @@
+[package]
+name = "rweviternia"
+version = "0.1.0"
+edition = "2021"
+
+# Define que temos uma biblioteca (lib.rs)
+[lib]
+name = "traffic_utils"
+path = "src/lib.rs"
+
+[dependencies]
+# Utilitários gerais
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Servidor Web (Axum)
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
